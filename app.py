@@ -1,4 +1,5 @@
 import os
+from dotenv import load_dotenv
 import uuid
 from datetime import datetime, timezone
 import json
@@ -7,7 +8,6 @@ from urllib.request import urlopen
 import streamlit as st
 import streamlit.components.v1 as components
 from streamlit_option_menu import option_menu
-import openai  # OpenAI API for ChatGPT integration
 try:
     import PyPDF2 as _pypdf
 except Exception:
@@ -18,43 +18,16 @@ except Exception:  # package missing or older version without this helper
     def get_browser_info():
         return {}
 
-# Set up OpenAI API Key (prefer session state, fallback to env)
-api_key = None
-if "openai_api_key" in st.session_state and st.session_state.openai_api_key:
-    api_key = st.session_state.openai_api_key
-elif os.environ.get("OPENAI_API_KEY"):
-    api_key = os.environ.get("OPENAI_API_KEY")
-    st.session_state.openai_api_key = api_key
+# Load .env early so environment variables are available locally
+try:
+    load_dotenv()
+except Exception:
+    pass
 
-if api_key:
-    openai.api_key = api_key
-    # Support OpenRouter keys by switching API base
-    try:
-        if isinstance(api_key, str) and api_key.startswith("sk-or-"):
-            openai.api_base = "https://openrouter.ai/api/v1"
-        else:
-            # Reset to OpenAI default if previously set
-            openai.api_base = "https://api.openai.com/v1"
-    except Exception:
-        pass
-else:
-    api_key = os.environ.get("OPENAI_API_KEY")
-    if api_key:
-        openai.api_key = api_key
-        st.session_state.openai_api_key = api_key
-        try:
-            if api_key.startswith("sk-or-"):
-                openai.api_base = "https://openrouter.ai/api/v1"
-            else:
-                if hasattr(openai, "api_base"):
-                    openai.api_base = "https://api.openai.com/v1"
-        except Exception:
-            pass
-    else:
-        # Defer key requirement to Chat tab; allow other tabs to function
-        openai.api_key = None
-
-# Using legacy OpenAI SDK interface (openai==0.28)
+# API key is now managed directly by the chat client and Streamlit secrets.
+# The API key is retrieved from session state or environment variables inside the
+# chat_completion function in chat/client.py.
+api_key = st.session_state.get("openai_api_key") or os.getenv("OPENAI_API_KEY")
 
 # Set page configuration
 st.set_page_config(page_title="Health Assistant",
@@ -377,6 +350,8 @@ if selected == 'Diabetes Prediction':
                 st.markdown(precautions, unsafe_allow_html=True)
         except ValueError:
             st.warning("Please enter valid numeric values.")
+        except Exception:
+            st.error("Prediction failed. Please refresh and try again.")
 
 # Heart Disease Prediction Page
 if selected == 'Heart Disease Prediction':
@@ -481,6 +456,8 @@ if selected == 'Heart Disease Prediction':
                 st.markdown(precautions, unsafe_allow_html=True)
         except ValueError:
             st.warning("Please enter valid numeric values.")
+        except Exception:
+            st.error("Prediction failed. Please refresh and try again.")
 
 # Parkinson's Prediction Page
 if selected == "Parkinsons Prediction":
@@ -579,10 +556,24 @@ if selected == "Parkinsons Prediction":
                 st.markdown(precautions, unsafe_allow_html=True)
         except ValueError:
             st.warning("Please enter valid numeric values.")
+        except Exception:
+            st.error("Prediction failed. Please refresh and try again.")
 # Chatbot Page
 if selected == 'Chat with HealthBot':
     st.title("Chat with HealthBot 🩺")
     st.info("This assistant provides general information and is not a medical professional. For medical advice, please consult a qualified clinician.")
+
+    # Display last chat error if it exists, then clear it
+    if 'last_chat_error' in st.session_state and st.session_state.last_chat_error:
+        st.error(f"HealthBot Error: {st.session_state.last_chat_error}")
+        del st.session_state.last_chat_error
+
+
+    # Debug panel for last chat error
+    _last_err = st.session_state.get('last_chat_error')
+    if _last_err:
+        with st.expander('Debug: Last chat error'):
+            st.code(str(_last_err))
 
     # Example prompts placed near the message box
     st.markdown("**Try an example**")
@@ -599,28 +590,20 @@ if selected == 'Chat with HealthBot':
             st.rerun()
 
     # If API key is missing, allow user to enter it securely at runtime
-    if not openai.api_key:
+    if not api_key:
         st.warning("OPENAI_API_KEY is not set. Enter a valid key below to use the chatbot.")
         key_input = st.text_input("OpenAI API Key", type="password", placeholder="sk-...", key="key_input")
         if st.button("Save API Key"):
             if key_input and key_input.strip():
                 key_val = key_input.strip()
                 st.session_state.openai_api_key = key_val
-                openai.api_key = key_val
-                try:
-                    if key_val.startswith("sk-or-"):
-                        openai.api_base = "https://openrouter.ai/api/v1"
-                    else:
-                        if hasattr(openai, "api_base"):
-                            openai.api_base = "https://api.openai.com/v1"
-                except Exception:
-                    pass
+                api_key = key_val
                 st.success("API key saved for this session.")
                 st.rerun()
             else:
                 st.error("Please enter a valid API key.")
         # If still no key, return early to avoid calling API
-        if not openai.api_key:
+        if not api_key:
             st.stop()
     else:
         # Key is set; proceed silently without banners or test button
@@ -640,9 +623,23 @@ if selected == 'Chat with HealthBot':
         return True, 0
 
     # Model settings (persist in session)
-    base = getattr(openai, "api_base", "")
-    st.session_state.chat_model = "openrouter/auto" if base.startswith("https://openrouter.ai") else "gpt-3.5-turbo"
+    provider = 'openai'
+    if os.getenv('OPENAI_PROVIDER') == 'openrouter' or (api_key and api_key.startswith('sk-or-')):
+        provider = 'openrouter'
+
+    if provider == 'openrouter':
+        st.session_state.chat_model = "openrouter/auto"
+        st.session_state.available_models = [
+            "openai/gpt-4o",
+            "anthropic/claude-3.5-sonnet",
+            "google/gemini-1.5-pro",
+            "openai/gpt-4-turbo"
+        ]
+    else:
+        st.session_state.chat_model = "gpt-3.5-turbo"
+        st.session_state.available_models = ["gpt-3.5-turbo", "gpt-4o-mini"]
     st.session_state.chat_temp = 0.2
+
 
     # Initialize messages in session state
     if "messages" not in st.session_state:
@@ -983,15 +980,16 @@ if selected == 'Chat with HealthBot':
                     _s.add_breadcrumb(category="chat", message="submit", level="info", data={"request_id": req_id})
                 except Exception:
                     pass
-                with st.spinner("Thinking..."):
+                with st.spinner("HealthBot is thinking..."):
                     assistant_reply = chat_completion(
                         temp_messages,
                         temperature=0.2,
                         max_tokens=512,
-                        request_timeout=30,
-                        retries=3,
-                        backoff_base=0.6,
+                        request_timeout=15,
+                        retries=0,
+                        backoff_base=0.5,
                         request_id=req_id,
+                        api_key=api_key,
                     )
 
                 # Limit response to 250 words
@@ -1002,10 +1000,16 @@ if selected == 'Chat with HealthBot':
                 # Commit both user and assistant messages only on success with non-empty reply
                 if assistant_reply.strip():
                     st.session_state.messages = temp_messages + [{"role": "assistant", "content": assistant_reply}]
+                    if 'last_chat_error' in st.session_state:
+                        del st.session_state['last_chat_error']
                     # chat messages not counted in visits by design
                 else:
                     # Remove the temp user message since the request failed to produce an answer
                     st.error("The assistant did not return any content. Please try again.")
+                    try:
+                        st.session_state['last_chat_error'] = 'empty_reply'
+                    except Exception:
+                        pass
                 st.session_state["clear_user_input"] = True
 
                 # Debug log for API response
@@ -1022,6 +1026,10 @@ if selected == 'Chat with HealthBot':
             except Exception as e:
                 logging.error({"event":"chat.exception","error": str(e)})
                 st.error("The chat service is temporarily unavailable. Please try again shortly.")
+                try:
+                    st.session_state['last_chat_error'] = str(e)
+                except Exception:
+                    pass
 
 # Admin Panel
 if st.session_state.get('admin_panel_open'):
