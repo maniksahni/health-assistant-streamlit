@@ -72,7 +72,20 @@ try:
     except Exception:
         _dsn = os.environ.get('SENTRY_DSN')
     if _dsn:
-        sentry_sdk.init(dsn=_dsn, traces_sample_rate=0.0)
+        def _scrub_pii(event, hint):
+            try:
+                # Remove potentially sensitive fields
+                if 'request' in event:
+                    req = event['request']
+                    req.pop('cookies', None)
+                    req.pop('headers', None)
+                    req.pop('data', None)
+                if 'user' in event:
+                    event['user'] = {'id': 'anon'}
+            except Exception:
+                pass
+            return event
+        sentry_sdk.init(dsn=_dsn, traces_sample_rate=0.0, send_default_pii=False, before_send=_scrub_pii)
 except Exception:
     pass
 
@@ -253,6 +266,13 @@ if st.session_state.get('show_admin_login') and not st.session_state.get('admin_
         admin_pw_env = st.secrets.get('ADMIN_PASSWORD', os.environ.get('ADMIN_PASSWORD'))
     except Exception:
         admin_pw_env = os.environ.get('ADMIN_PASSWORD')
+    # Cooldown for repeated failures
+    import time as _t
+    now_ts = int(_t.time())
+    next_try = st.session_state.get('admin_next_try', 0)
+    if now_ts < next_try:
+        st.warning(f"Too many failed attempts. Try again in {next_try - now_ts}s.")
+        st.stop()
     entered = st.text_input('Admin password', type='password', key='admin_pw_input')
     c1, c2 = st.columns(2)
     with c1:
@@ -261,9 +281,15 @@ if st.session_state.get('show_admin_login') and not st.session_state.get('admin_
                 st.session_state['admin_authed'] = True
                 st.session_state['admin_panel_open'] = True
                 st.session_state['show_admin_login'] = False
+                st.session_state['admin_fail_count'] = 0
                 st.rerun()
             else:
                 st.error('Invalid password or ADMIN_PASSWORD not set.')
+                fails = int(st.session_state.get('admin_fail_count', 0)) + 1
+                st.session_state['admin_fail_count'] = fails
+                # Exponential cooldown up to 5 minutes
+                wait = min(300, int(5 * (2 ** (fails - 1))))
+                st.session_state['admin_next_try'] = int(_t.time()) + wait
     with c2:
         if st.button('Cancel', key='cancel_admin'):
             st.session_state['show_admin_login'] = False
@@ -600,6 +626,19 @@ if selected == 'Chat with HealthBot':
         # Key is set; proceed silently without banners or test button
         pass
 
+    # Rate limiting per session (simple sliding window)
+    def _allow_chat_send(limit=10, window_s=60):
+        import time as _t
+        log = st.session_state.get('rate_log', [])
+        now = _t.time()
+        log = [t for t in log if now - t < window_s]
+        if len(log) >= limit:
+            st.session_state['rate_log'] = log
+            return False, int(window_s - (now - log[0]))
+        log.append(now)
+        st.session_state['rate_log'] = log
+        return True, 0
+
     # Model settings (persist in session)
     base = getattr(openai, "api_base", "")
     st.session_state.chat_model = "openrouter/auto" if base.startswith("https://openrouter.ai") else "gpt-3.5-turbo"
@@ -626,9 +665,12 @@ if selected == 'Chat with HealthBot':
             st.markdown(f"**You:** {message['content']}")
 
     # Clear the input box if flagged, BEFORE rendering the widget
-    if st.session_state.get("clear_user_input", False):
-        st.session_state["user_input"] = ""
-        st.session_state["clear_user_input"] = False
+    if submitted and st.session_state.get("user_input", "").strip():
+        ok, wait_s = _allow_chat_send()
+        if not ok:
+            st.warning(f"You are sending messages too quickly. Try again in ~{wait_s}s.")
+            st.stop()
+        temp_messages = capped_history(st.session_state.messages + [{"role": "user", "content": st.session_state["user_input"].strip()}])
 
     # If a transcript arrived via query params from the mic component, prefill the input
     try:
@@ -720,6 +762,22 @@ if selected == 'Chat with HealthBot':
                 accept_multiple_files=True,
                 type=["pdf","txt","csv","json","png","jpg","jpeg","webp","heic","heif"],
             )
+            # Validate uploads (size and mime best-effort)
+            if uploaded_files:
+                safe = []
+                too_large = []
+                for uf in uploaded_files:
+                    try:
+                        size = len(uf.getbuffer())
+                        if size > 5 * 1024 * 1024:  # 5MB limit
+                            too_large.append(uf.name)
+                            continue
+                        safe.append(uf)
+                    except Exception:
+                        pass
+                if too_large:
+                    st.warning(f"Skipped large files (>5MB): {', '.join(too_large)}")
+                st.session_state['validated_uploads'] = safe
         with photo_col:
             if 'photo_mode' not in st.session_state:
                 st.session_state['photo_mode'] = 'camera'
@@ -1045,9 +1103,9 @@ if st.session_state.get('admin_panel_open'):
         st.subheader('Danger zone')
         with st.form('reset_form'):
             st.warning('This will permanently delete all visit records.')
-            confirm = st.checkbox('Yes, delete all data')
+            typed = st.text_input("Type DELETE to confirm", key="confirm_delete_text")
             do_reset = st.form_submit_button('Reset analytics data')
-        if do_reset and confirm:
+        if do_reset and typed.strip().upper() == 'DELETE':
             try:
                 cur.execute('DELETE FROM visits')
                 visits_conn.commit()

@@ -4,6 +4,7 @@ import random
 from typing import List, Dict, Any
 
 import openai
+from openai import OpenAI
 
 DEFAULT_TEMP = 0.2
 DEFAULT_MAX_TOKENS = 512
@@ -12,6 +13,14 @@ DEFAULT_MAX_TOKENS = 512
 def select_model() -> str:
     base = getattr(openai, "api_base", "")
     return "openrouter/auto" if base.startswith("https://openrouter.ai") else "gpt-3.5-turbo"
+
+
+def _get_client() -> OpenAI:
+    base = getattr(openai, "api_base", "")
+    api_key = getattr(openai, "api_key", None)
+    if base:
+        return OpenAI(api_key=api_key, base_url=base)
+    return OpenAI(api_key=api_key)
 
 
 def chat_completion(messages: List[Dict[str, Any]], *,
@@ -32,32 +41,33 @@ def chat_completion(messages: List[Dict[str, Any]], *,
     while attempt <= retries:
         try:
             # Prefer streaming if possible for perceived latency
-            stream = openai.ChatCompletion.create(
+            client = _get_client()
+            stream = client.chat.completions.create(
                 model=model_name,
                 messages=messages,
                 temperature=float(temperature),
                 max_tokens=int(max_tokens),
                 stream=True,
-                request_timeout=int(request_timeout),
+                timeout=int(request_timeout),
             )
             text = ""
             for chunk in stream:
                 try:
-                    delta = chunk["choices"][0]["delta"].get("content", "") if "choices" in chunk else ""
+                    delta = chunk.choices[0].delta.content or ""
                 except Exception:
                     delta = ""
                 if delta:
                     text += delta
             if not text.strip():
                 # non-streaming fallback same attempt
-                resp = openai.ChatCompletion.create(
+                resp = client.chat.completions.create(
                     model=model_name,
                     messages=messages,
                     temperature=float(temperature),
                     max_tokens=int(max_tokens),
-                    request_timeout=int(request_timeout),
+                    timeout=int(request_timeout),
                 )
-                text = resp.choices[0].message.get("content", "")
+                text = resp.choices[0].message.content or ""
             latency = time.time() - t0
             logging.info({
                 "event": "chat.complete",
