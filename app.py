@@ -3,6 +3,7 @@ from dotenv import load_dotenv
 import uuid
 from datetime import datetime, timezone
 import json
+import random
 import logging
 from urllib.request import urlopen
 import streamlit as st
@@ -578,15 +579,32 @@ if selected == 'Chat with HealthBot':
     # Example prompts placed near the message box
     st.markdown("**Try an example**")
     ex_cols = st.columns(3)
-    examples = [
-        "I have a headache and nausea for 2 days. What could it be?",
-        "I'm on metformin. What side effects should I watch for?",
-        "What are lifestyle changes to lower heart disease risk?",
+
+    all_examples = [
+        "I have a headache and nausea. What could it be?",
+        "I'm on metformin. What are the side effects?",
+        "What are lifestyle changes for heart disease?",
+        "What are the symptoms of a common cold?",
+        "How can I improve my sleep quality?",
+        "What's the difference between a sprain and a strain?",
+        "Can you explain what a balanced diet is?",
+        "What are some exercises for lower back pain?",
+        "Tell me about seasonal allergies.",
+        "How much water should I drink every day?",
+        "What are the benefits of meditation?",
+        "Is it safe to exercise with a fever?",
     ]
-    for i, text in enumerate(examples):
-        if ex_cols[i % 3].button(text[:28] + ("…" if len(text) > 28 else ""), key=f"ex_{i}"):
+
+    # Select 3 random, unique examples to display
+    if 'current_examples' not in st.session_state:
+        st.session_state.current_examples = random.sample(all_examples, 3)
+
+    for i, text in enumerate(st.session_state.current_examples):
+        if ex_cols[i % 3].button(text, key=f"ex_{i}"):
             st.session_state["user_input"] = text
             st.session_state['auto_submit'] = True
+            # When an example is clicked, clear the current examples to get new ones on rerun
+            del st.session_state.current_examples
             st.rerun()
 
     # If API key is missing, allow user to enter it securely at runtime
