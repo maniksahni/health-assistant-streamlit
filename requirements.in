@@ -6,3 +6,4 @@ streamlit-option-menu==0.3.6
 openai>=1.30.0
 streamlit-js-eval==0.1.7
 psycopg2-binary==2.9.9
+SQLAlchemy==2.0.36
