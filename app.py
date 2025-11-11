@@ -66,6 +66,19 @@ st.set_page_config(page_title="Health Assistant",
 # Basic logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
 
+# Optional Sentry error monitoring
+try:
+    import sentry_sdk  # type: ignore
+    _dsn = None
+    try:
+        _dsn = st.secrets.get('SENTRY_DSN')
+    except Exception:
+        _dsn = os.environ.get('SENTRY_DSN')
+    if _dsn:
+        sentry_sdk.init(dsn=_dsn, traces_sample_rate=0.0)
+except Exception:
+    pass
+
 # Get the working directory of the main.py
 working_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -531,6 +544,19 @@ if selected == 'Chat with HealthBot':
     st.title("Chat with HealthBot 🩺")
     st.info("This assistant provides general information and is not a medical professional. For medical advice, please consult a qualified clinician.")
 
+    # Example prompts
+    with st.expander("Try an example"):
+        ex_cols = st.columns(3)
+        examples = [
+            "I have a headache and nausea for 2 days. What could it be?",
+            "I'm on metformin. What side effects should I watch for?",
+            "What are lifestyle changes to lower heart disease risk?",
+        ]
+        for i, text in enumerate(examples):
+            if ex_cols[i % 3].button(text[:28] + ("…" if len(text) > 28 else ""), key=f"ex_{i}"):
+                st.session_state["user_input"] = text
+                st.rerun()
+
     # If API key is missing, allow user to enter it securely at runtime
     if not openai.api_key:
         st.warning("OPENAI_API_KEY is not set. Enter a valid key below to use the chatbot.")
@@ -801,6 +827,11 @@ if selected == 'Chat with HealthBot':
 
     if submitted:
         if user_input:
+            # High-risk keyword guard
+            risk_terms = ["chest pain", "shortness of breath", "suicidal", "heart attack", "stroke"]
+            if any(term in user_input.lower() for term in risk_terms):
+                st.error("Your message may indicate a medical emergency. Please contact local emergency services or a qualified clinician immediately.")
+                st.stop()
             content = user_input
             _att = []
             _names = st.session_state.get("uploaded_files_info") or []
