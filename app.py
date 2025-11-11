@@ -665,12 +665,10 @@ if selected == 'Chat with HealthBot':
             st.markdown(f"**You:** {message['content']}")
 
     # Clear the input box if flagged, BEFORE rendering the widget
-    if submitted and st.session_state.get("user_input", "").strip():
-        ok, wait_s = _allow_chat_send()
-        if not ok:
-            st.warning(f"You are sending messages too quickly. Try again in ~{wait_s}s.")
-            st.stop()
-        temp_messages = capped_history(st.session_state.messages + [{"role": "user", "content": st.session_state["user_input"].strip()}])
+    if st.session_state.get("clear_user_input", False):
+        st.session_state["user_input"] = ""
+        st.session_state["clear_user_input"] = False
+    submitted = False
 
     # If a transcript arrived via query params from the mic component, prefill the input
     try:
@@ -980,6 +978,11 @@ if selected == 'Chat with HealthBot':
                 # Use helper with retries/backoff + correlation id
                 from chat.client import chat_completion
                 req_id = str(uuid.uuid4())
+                try:
+                    import sentry_sdk as _s
+                    _s.add_breadcrumb(category="chat", message="submit", level="info", data={"request_id": req_id})
+                except Exception:
+                    pass
                 with st.spinner("Thinking..."):
                     assistant_reply = chat_completion(
                         temp_messages,
@@ -987,6 +990,7 @@ if selected == 'Chat with HealthBot':
                         max_tokens=512,
                         request_timeout=30,
                         retries=3,
+                        backoff_base=0.6,
                         request_id=req_id,
                     )
 
@@ -1006,6 +1010,11 @@ if selected == 'Chat with HealthBot':
 
                 # Debug log for API response
                 logging.info({"event":"chat.reply","preview": assistant_reply[:120]})
+                try:
+                    import sentry_sdk as _s
+                    _s.add_breadcrumb(category="chat", message="reply", level="info", data={"request_id": req_id, "preview": assistant_reply[:60]})
+                except Exception:
+                    pass
 
                 # Rerun the app to refresh chat history only on success
                 st.rerun()  # Updated to the new rerun function.
@@ -1069,9 +1078,19 @@ if st.session_state.get('admin_panel_open'):
         else:
             st.info('No visits recorded for this range.')
 
-        # Detailed table
+        # Detailed table with pagination
         st.subheader('Details')
-        cur.execute(f"SELECT visitor_id, page, first_ts, last_ts, count, user_agent, ip FROM visits {where} ORDER BY last_ts DESC", params)
+        pg_size = st.selectbox('Rows per page', [10, 25, 50, 100], index=1)
+        page_idx = st.number_input('Page', min_value=1, step=1, value=1)
+        limit = int(pg_size)
+        offset = (int(page_idx) - 1) * limit
+        if _visits_kind == 'pg':
+            q = f"SELECT visitor_id, page, first_ts, last_ts, count, user_agent, ip FROM visits {where} ORDER BY last_ts DESC LIMIT %s OFFSET %s"
+            q_params = list(params) + [limit, offset]
+        else:
+            q = f"SELECT visitor_id, page, first_ts, last_ts, count, user_agent, ip FROM visits {where} ORDER BY last_ts DESC LIMIT ? OFFSET ?"
+            q_params = list(params) + [limit, offset]
+        cur.execute(q, q_params)
         details = cur.fetchall()
         if details:
             # Mask visitor IDs for privacy: show only first 4 and last 4 chars
