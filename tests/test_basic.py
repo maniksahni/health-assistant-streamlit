@@ -1,5 +1,21 @@
 import os
-import re
+
+
+def test_always_passes():
+    assert True
+
+
+def test_needs_web_search():
+    from chat.client import _needs_web_search
+
+    # Test cases that should trigger a web search
+    assert _needs_web_search("what is the price of an iPhone 17?") is True
+    assert _needs_web_search("latest news on streamlit") is True
+    assert _needs_web_search("what is the weather today?") is True
+
+    # Test cases that should not trigger a web search
+    assert _needs_web_search("I have a headache") is False
+    assert _needs_web_search("tell me a joke") is False
 
 
 def test_runtime_pin_exists():
@@ -13,7 +29,7 @@ def test_requirements_versions():
     assert os.path.exists("requirements.txt")
     txt = open("requirements.txt").read()
     assert "numpy==1.26.4" in txt
-    assert re.search(r"scikit-learn==1\.[45]", txt)
+    assert "scikit-learn==1.3.2" in txt
 
 
 def test_model_files_exist():
