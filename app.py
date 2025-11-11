@@ -5,6 +5,8 @@ import uuid
 from datetime import datetime, timezone
 import json
 import base64
+import logging
+import random as _rand
 from urllib.request import urlopen
 import streamlit as st
 import streamlit.components.v1 as components
@@ -62,6 +64,8 @@ else:
 st.set_page_config(page_title="Health Assistant",
                    layout="wide",
                    page_icon="🧑‍⚕️")
+# Basic logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
 
 # Get the working directory of the main.py
 working_dir = os.path.dirname(os.path.abspath(__file__))
@@ -73,6 +77,32 @@ if "visitor_id" not in st.session_state:
 
 @st.cache_resource
 def _get_visits_db(db_path: str):
+    """Return (conn, kind) where kind is 'sqlite' or 'pg'."""
+    db_url = os.environ.get('DATABASE_URL')
+    if db_url and (db_url.startswith('postgres://') or db_url.startswith('postgresql://')):
+        try:
+            import psycopg2
+            conn = psycopg2.connect(db_url)
+            cur = conn.cursor()
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS visits (
+                    visitor_id TEXT NOT NULL,
+                    page TEXT NOT NULL,
+                    first_ts TEXT NOT NULL,
+                    last_ts TEXT NOT NULL,
+                    count INTEGER NOT NULL,
+                    user_agent TEXT,
+                    ip TEXT,
+                    PRIMARY KEY (visitor_id, page)
+                )
+                """
+            )
+            conn.commit()
+            return conn, 'pg'
+        except Exception:
+            logging.warning('Falling back to SQLite analytics. Set DATABASE_URL to enable Postgres.')
+            # fall through to sqlite
     conn = sqlite3.connect(db_path, check_same_thread=False)
     cur = conn.cursor()
     cur.execute(
@@ -89,7 +119,6 @@ def _get_visits_db(db_path: str):
         )
         """
     )
-    # Backfill columns if upgrading from older schema
     try:
         cur.execute("PRAGMA table_info(visits)")
         cols = {r[1] for r in cur.fetchall()}
@@ -101,40 +130,46 @@ def _get_visits_db(db_path: str):
     except Exception:
         pass
     conn.commit()
-    return conn
+    return conn, 'sqlite'
 
-visits_conn = _get_visits_db(os.path.join(working_dir, "analytics.db"))
+visits_conn, _visits_kind = _get_visits_db(os.path.join(working_dir, "analytics.db"))
 
 def record_visit(page: str):
     try:
         cur = visits_conn.cursor()
         now = datetime.now(timezone.utc).isoformat()
-        cur.execute(
-            "SELECT count FROM visits WHERE visitor_id=? AND page=?",
-            (st.session_state["visitor_id"], page),
-        )
-        row = cur.fetchone()
-        if row is None:
+        vid = st.session_state["visitor_id"]
+        ua = st.session_state.get('ua')
+        ip = st.session_state.get('ip')
+        if _visits_kind == 'pg':
             cur.execute(
-                "INSERT INTO visits (visitor_id, page, first_ts, last_ts, count, user_agent, ip) VALUES (?,?,?,?,?,?,?)",
-                (
-                    st.session_state["visitor_id"],
-                    page,
-                    now,
-                    now,
-                    1,
-                    st.session_state.get('ua'),
-                    st.session_state.get('ip'),
-                ),
+                """
+                INSERT INTO visits (visitor_id, page, first_ts, last_ts, count, user_agent, ip)
+                VALUES (%s,%s,%s,%s,%s,%s,%s)
+                ON CONFLICT (visitor_id, page)
+                DO UPDATE SET last_ts=EXCLUDED.last_ts, count=visits.count+1, user_agent=EXCLUDED.user_agent, ip=EXCLUDED.ip
+                """,
+                (vid, page, now, now, 1, ua, ip),
             )
         else:
             cur.execute(
-                "UPDATE visits SET last_ts=?, count=count+1 WHERE visitor_id=? AND page=?",
-                (now, st.session_state["visitor_id"], page),
+                "SELECT count FROM visits WHERE visitor_id=? AND page=?",
+                (vid, page),
             )
+            row = cur.fetchone()
+            if row is None:
+                cur.execute(
+                    "INSERT INTO visits (visitor_id, page, first_ts, last_ts, count, user_agent, ip) VALUES (?,?,?,?,?,?,?)",
+                    (vid, page, now, now, 1, ua, ip),
+                )
+            else:
+                cur.execute(
+                    "UPDATE visits SET last_ts=?, count=count+1, user_agent=?, ip=? WHERE visitor_id=? AND page=?",
+                    (now, ua, ip, vid, page),
+                )
         visits_conn.commit()
-    except Exception:
-        pass
+    except Exception as e:
+        logging.debug(f"record_visit failed: {e}")
 
 def capture_client_meta():
     # Only attempt once per session
