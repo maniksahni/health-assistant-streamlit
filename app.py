@@ -117,15 +117,19 @@ def capture_client_meta():
         pass
 
 
-try:
-    from ml.models import load_models
+from ml.models import load_single_model
 
-    diabetes_model, heart_disease_model, parkinsons_model = load_models(working_dir)
-    _models_ok = True
-except Exception as _e:
-    logging.warning(f"ML models unavailable: {_e}")
-    diabetes_model = heart_disease_model = parkinsons_model = None
-    _models_ok = False
+@st.cache_resource
+def get_diabetes_model():
+    return load_single_model(working_dir, 'diabetes')
+
+@st.cache_resource
+def get_heart_disease_model():
+    return load_single_model(working_dir, 'heart')
+
+@st.cache_resource
+def get_parkinsons_model():
+    return load_single_model(working_dir, 'parkinsons')
 
 # Sidebar for navigation
 with st.sidebar:
@@ -287,6 +291,7 @@ if st.session_state.get("show_admin_login") and not st.session_state.get("admin_
 # Diabetes Prediction Page
 if selected == "Diabetes Prediction":
     st.title("Diabetes Prediction using ML")
+    diabetes_model = get_diabetes_model()
 
     if diabetes_model is None:
         st.error("Model currently unavailable. Please refresh or try again later.")
@@ -393,6 +398,7 @@ if selected == "Diabetes Prediction":
 # Heart Disease Prediction Page
 if selected == "Heart Disease Prediction":
     st.title("Heart Disease Prediction using ML")
+    heart_disease_model = get_heart_disease_model()
 
     if heart_disease_model is None:
         st.error("Model currently unavailable. Please refresh or try again later.")
@@ -560,6 +566,7 @@ if selected == "Heart Disease Prediction":
 # Parkinson's Prediction Page
 if selected == "Parkinsons Prediction":
     st.title("Parkinson's Disease Prediction using ML")
+    parkinsons_model = get_parkinsons_model()
 
     if parkinsons_model is None:
         st.error("Model currently unavailable. Please refresh or try again later.")
