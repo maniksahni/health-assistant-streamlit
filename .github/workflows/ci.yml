@@ -20,8 +20,11 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
           pip install -r requirements-dev.txt
+          # Compile lockfile with hashes
+          pip-compile --generate-hashes --allow-unsafe --output-file requirements.txt requirements.in
+          # Install exactly locked deps
+          pip install --require-hashes -r requirements.txt
 
       - name: Lint (ruff)
         run: ruff check .

@@ -1,0 +1,8 @@
+# Top-level application dependencies (locked via pip-tools)
+numpy==1.26.4
+scikit-learn==1.5.2
+streamlit==1.29.0
+streamlit-option-menu==0.3.6
+openai==0.28.0
+streamlit-js-eval==0.1.7
+psycopg2-binary==2.9.9
