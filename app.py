@@ -959,55 +959,9 @@ if selected == 'Chat with HealthBot':
             temp_messages = capped_history(st.session_state.messages + [temp_user_msg] + attach_msgs)
 
             try:
-                # Debug log for request payload
-                print("Debug: Sending the following payload to OpenAI API:")
-                print(temp_messages)
-
-                # Call ChatCompletion API (legacy SDK)
-                model_name = "openrouter/auto" if getattr(openai, "api_base", "").startswith("https://openrouter.ai") else "gpt-3.5-turbo"
-                # Try streaming for perceived speed, fallback to non-streaming
-                assistant_reply = ""
-                try:
-                    import time as _t
-                    _start = _t.time()
-                    stream = openai.ChatCompletion.create(
-                        model=model_name,
-                        messages=temp_messages,
-                        max_tokens=256,
-                        temperature=0.2,
-                        stream=True,
-                        request_timeout=30,
-                    )
-                    reply_box = st.empty()
-                    for chunk in stream:
-                        delta = chunk["choices"][0]["delta"].get("content", "") if "choices" in chunk else ""
-                        if delta:
-                            assistant_reply += delta
-                            reply_box.markdown(f"**HealthBot (typing):** {assistant_reply}")
-                    elapsed = _t.time() - _start
-                    # If streaming produced no content, fallback to non-streaming
-                    if not assistant_reply.strip():
-                        response = openai.ChatCompletion.create(
-                            model=model_name,
-                            messages=temp_messages,
-                            max_tokens=512,
-                            temperature=0.2,
-                            request_timeout=30,
-                        )
-                        assistant_reply = response.choices[0].message["content"] or ""
-                    if assistant_reply.strip():
-                        reply_box.markdown(f"**HealthBot:** {assistant_reply}\n\n<sub>Responded in {elapsed:.1f}s</sub>")
-                    else:
-                        st.error("No response received from the chat provider. Please try again.")
-                except Exception:
-                    response = openai.ChatCompletion.create(
-                        model=model_name,
-                        messages=temp_messages,
-                        max_tokens=256,
-                        temperature=0.2,
-                        request_timeout=30,
-                    )
-                    assistant_reply = response.choices[0].message["content"]
+                # Use helper with retries/backoff
+                from chat.client import chat_completion
+                assistant_reply = chat_completion(temp_messages, temperature=0.2, max_tokens=512, request_timeout=30, retries=3)
 
                 # Limit response to 250 words
                 assistant_reply_words = assistant_reply.split()
@@ -1024,37 +978,14 @@ if selected == 'Chat with HealthBot':
                 st.session_state["clear_user_input"] = True
 
                 # Debug log for API response
-                print("Debug: Received response from OpenAI API:")
-                try:
-                    print(response)
-                except NameError:
-                    print({"message_preview": assistant_reply[:120]})
+                logging.info({"event":"chat.reply","preview": assistant_reply[:120]})
 
                 # Rerun the app to refresh chat history only on success
                 st.rerun()  # Updated to the new rerun function.
 
             except Exception as e:
-                print("Error: Exception occurred while calling chat API.")
-                print(e)
-                msg = str(e)
-                low = msg.lower()
-                try:
-                    fallback_resp = openai.ChatCompletion.create(
-                        model=model_name,
-                        messages=temp_messages,
-                        max_tokens=128,
-                        temperature=0.2,
-                        request_timeout=20,
-                    )
-                    assistant_reply = fallback_resp.choices[0].message.get("content", "")
-                    if assistant_reply.strip():
-                        st.session_state.messages = temp_messages + [{"role": "assistant", "content": assistant_reply}]
-                        st.session_state["clear_user_input"] = True
-                        st.rerun()
-                    else:
-                        st.error("Unable to get a response right now. Please try again in a moment.")
-                except Exception:
-                    st.error("The chat service is temporarily unavailable. Please try again shortly.")
+                logging.error({"event":"chat.exception","error": str(e)})
+                st.error("The chat service is temporarily unavailable. Please try again shortly.")
 
 # Admin Panel
 if st.session_state.get('admin_panel_open'):
