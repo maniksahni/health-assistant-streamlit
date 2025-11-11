@@ -40,7 +40,9 @@ def get_conn(base_path: str):
             return engine, "pg"
         except Exception as e:
             logging.warning(f"Postgres/SQLAlchemy unavailable, falling back to SQLite: {e}")
-    # SQLite fallback
+    # SQLite fallback (disabled on Streamlit Cloud without DATABASE_URL)
+    if os.environ.get("IS_STREAMLIT_CLOUD") == "true":
+        return None, None
     path = os.path.join(base_path, "analytics.db")
     conn = sqlite3.connect(path, check_same_thread=False)
     cur = conn.cursor()
@@ -73,6 +75,8 @@ def get_conn(base_path: str):
 
 
 def record_visit(conn, kind: str, visitor_id: str, page: str, ua: str, ip: str):
+    if not conn:
+        return
     try:
         now = datetime.now(timezone.utc).isoformat()
         if kind == "pg":
@@ -136,6 +140,8 @@ def record_visit(conn, kind: str, visitor_id: str, page: str, ua: str, ip: str):
 
 
 def query_summary(conn, kind: str, where: str = "", params: List = None) -> Dict:
+    if not conn:
+        return {"unique_visitors": 0, "total_visits": 0}
     params = params or []
     cur = conn.cursor()
     cur.execute(f"SELECT COUNT(DISTINCT visitor_id) FROM visits {where}", params)
