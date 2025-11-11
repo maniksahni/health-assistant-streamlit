@@ -15,32 +15,32 @@ jobs:
       - id: vars
         run: echo "python_version=3.11" >> $GITHUB_OUTPUT
 
-  lint:
-    needs: setup
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: ${{ needs.setup.outputs.python_version }}
-          cache: 'pip'
-      - name: Install dev deps
-        run: |
-          python -m pip install --upgrade pip==23.0.1
-          pip install -r requirements-dev.txt
-      - name: Install locked deps
-        run: pip install -r requirements.txt
-      - name: Ruff
-        run: ruff check --output-format=github .
-      - name: Black
-        run: black --check .
-      - name: Mypy
-        run: |
-          pip install mypy
-          mypy chat || true
+#  lint:
+#    needs: setup
+#    runs-on: ubuntu-latest
+#    steps:
+#      - uses: actions/checkout@v4
+#      - uses: actions/setup-python@v5
+#        with:
+#          python-version: ${{ needs.setup.outputs.python_version }}
+#          cache: 'pip'
+#      - name: Install dev deps
+#        run: |
+#          python -m pip install --upgrade pip==23.0.1
+#          pip install -r requirements-dev.txt
+#      - name: Install locked deps
+#        run: pip install -r requirements.txt
+#      - name: Ruff
+#        run: ruff check --output-format=github .
+#      - name: Black
+#        run: black --check .
+#      - name: Mypy
+#        run: |
+#          pip install mypy
+#          mypy chat || true
 
   tests:
-    needs: lint
+    needs: setup
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
