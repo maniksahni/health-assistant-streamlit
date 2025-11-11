@@ -1,6 +1,6 @@
 import os
 import tempfile
-from data.analytics import get_conn, record_visit, query_summary
+from app_data.analytics import get_conn, record_visit, query_summary
 
 
 def test_sqlite_record_and_summary(tmp_path):

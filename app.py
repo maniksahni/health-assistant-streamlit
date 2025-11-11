@@ -87,7 +87,7 @@ working_dir = os.path.dirname(os.path.abspath(__file__))
 if "visitor_id" not in st.session_state:
     st.session_state["visitor_id"] = str(uuid.uuid4())
 
-from data.analytics import get_conn as _get_visits_db, record_visit as _record_visit
+from app_data.analytics import get_conn as _get_visits_db, record_visit as _record_visit
 
 visits_conn, _visits_kind = _get_visits_db(working_dir)
 

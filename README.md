@@ -42,7 +42,7 @@ An AI-assisted health helper with three ML predictors (diabetes, heart disease, 
 - `app.py` – Streamlit UI router for 4 sections and admin panel
 - `ml/models.py` – cached loading of pickled models
 - `chat/client.py` – chat wrapper with retry/backoff, model selection, logging
-- `data/analytics.py` – visits tracking (SQLite by default, Postgres when `DATABASE_URL` is set)
+- `app_data/analytics.py` – visits tracking (SQLite by default, Postgres when `DATABASE_URL` is set)
 - `.github/workflows/ci.yml` – CI with ruff, black, pytest, smoke run
 
 ## Secrets
