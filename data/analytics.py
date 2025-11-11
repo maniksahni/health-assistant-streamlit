@@ -10,10 +10,11 @@ import streamlit as st
 @st.cache_resource
 def get_conn(base_path: str):
     """Return (conn, kind) where kind is 'sqlite' or 'pg'."""
-    db_url = os.environ.get('DATABASE_URL')
-    if db_url and (db_url.startswith('postgres://') or db_url.startswith('postgresql://')):
+    db_url = os.environ.get("DATABASE_URL")
+    if db_url and (db_url.startswith("postgres://") or db_url.startswith("postgresql://")):
         try:
             import psycopg2
+
             conn = psycopg2.connect(db_url)
             cur = conn.cursor()
             cur.execute(
@@ -31,11 +32,11 @@ def get_conn(base_path: str):
                 """
             )
             conn.commit()
-            return conn, 'pg'
+            return conn, "pg"
         except Exception as e:
-            logging.warning(f'Postgres unavailable, falling back to SQLite: {e}')
+            logging.warning(f"Postgres unavailable, falling back to SQLite: {e}")
     # SQLite fallback
-    path = os.path.join(base_path, 'analytics.db')
+    path = os.path.join(base_path, "analytics.db")
     conn = sqlite3.connect(path, check_same_thread=False)
     cur = conn.cursor()
     cur.execute(
@@ -55,22 +56,22 @@ def get_conn(base_path: str):
     try:
         cur.execute("PRAGMA table_info(visits)")
         cols = {r[1] for r in cur.fetchall()}
-        if 'user_agent' not in cols:
+        if "user_agent" not in cols:
             cur.execute("ALTER TABLE visits ADD COLUMN user_agent TEXT")
-        if 'ip' not in cols:
+        if "ip" not in cols:
             cur.execute("ALTER TABLE visits ADD COLUMN ip TEXT")
         conn.commit()
     except Exception:
         pass
     conn.commit()
-    return conn, 'sqlite'
+    return conn, "sqlite"
 
 
 def record_visit(conn, kind: str, visitor_id: str, page: str, ua: str, ip: str):
     try:
         now = datetime.now(timezone.utc).isoformat()
         cur = conn.cursor()
-        if kind == 'pg':
+        if kind == "pg":
             cur.execute(
                 """
                 INSERT INTO visits (visitor_id, page, first_ts, last_ts, count, user_agent, ip)

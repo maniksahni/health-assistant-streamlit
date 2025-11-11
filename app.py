@@ -20,8 +20,10 @@ except Exception:
 try:
     from streamlit_js_eval import get_browser_info
 except Exception:  # package missing or older version without this helper
+
     def get_browser_info():
         return {}
+
 
 # Load .env early so environment variables are available locally
 try:
@@ -35,35 +37,38 @@ except Exception:
 api_key = st.session_state.get("openai_api_key") or os.getenv("OPENAI_API_KEY")
 
 # Set page configuration
-st.set_page_config(page_title="Health Assistant",
-                   layout="wide",
-                   page_icon="🧑‍⚕️")
+st.set_page_config(page_title="Health Assistant", layout="wide", page_icon="🧑‍⚕️")
 # Basic logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
 # Optional Sentry error monitoring
 try:
     import sentry_sdk  # type: ignore
+
     _dsn = None
     try:
-        _dsn = st.secrets.get('SENTRY_DSN')
+        _dsn = st.secrets.get("SENTRY_DSN")
     except Exception:
-        _dsn = os.environ.get('SENTRY_DSN')
+        _dsn = os.environ.get("SENTRY_DSN")
     if _dsn:
+
         def _scrub_pii(event, hint):
             try:
                 # Remove potentially sensitive fields
-                if 'request' in event:
-                    req = event['request']
-                    req.pop('cookies', None)
-                    req.pop('headers', None)
-                    req.pop('data', None)
-                if 'user' in event:
-                    event['user'] = {'id': 'anon'}
+                if "request" in event:
+                    req = event["request"]
+                    req.pop("cookies", None)
+                    req.pop("headers", None)
+                    req.pop("data", None)
+                if "user" in event:
+                    event["user"] = {"id": "anon"}
             except Exception:
                 pass
             return event
-        sentry_sdk.init(dsn=_dsn, traces_sample_rate=0.0, send_default_pii=False, before_send=_scrub_pii)
+
+        sentry_sdk.init(
+            dsn=_dsn, traces_sample_rate=0.0, send_default_pii=False, before_send=_scrub_pii
+        )
 except Exception:
     pass
 
@@ -76,6 +81,7 @@ if "visitor_id" not in st.session_state:
 
 visits_conn, _visits_kind = _get_visits_db(working_dir)
 
+
 def record_visit(page: str):
     try:
         _record_visit(
@@ -83,34 +89,37 @@ def record_visit(page: str):
             _visits_kind,
             st.session_state["visitor_id"],
             page,
-            st.session_state.get('ua'),
-            st.session_state.get('ip'),
+            st.session_state.get("ua"),
+            st.session_state.get("ip"),
         )
     except Exception as e:
         logging.debug(f"record_visit failed: {e}")
 
+
 def capture_client_meta():
     # Only attempt once per session
-    if st.session_state.get('ua') and st.session_state.get('ip'):
+    if st.session_state.get("ua") and st.session_state.get("ip"):
         return
     try:
         info = get_browser_info()
-        if isinstance(info, dict) and info.get('userAgent'):
-            st.session_state['ua'] = info['userAgent'][:512]
+        if isinstance(info, dict) and info.get("userAgent"):
+            st.session_state["ua"] = info["userAgent"][:512]
     except Exception:
         pass
     # IP via ipify (best-effort)
     try:
-        with urlopen('https://api.ipify.org?format=json', timeout=5) as resp:
-            data = json.loads(resp.read().decode('utf-8'))
-            ip = data.get('ip')
+        with urlopen("https://api.ipify.org?format=json", timeout=5) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            ip = data.get("ip")
             if ip:
-                st.session_state['ip'] = ip
+                st.session_state["ip"] = ip
     except Exception:
         pass
 
+
 try:
     from ml.models import load_models
+
     diabetes_model, heart_disease_model, parkinsons_model = load_models(working_dir)
     _models_ok = True
 except Exception as _e:
@@ -120,14 +129,18 @@ except Exception as _e:
 
 # Sidebar for navigation
 with st.sidebar:
-    selected = option_menu('HEALTH AI',
-                           ['Diabetes Prediction',
-                            'Heart Disease Prediction',
-                            'Parkinsons Prediction',
-                            'Chat with HealthBot'],
-                           menu_icon='hospital-fill',
-                           icons=['activity', 'heart', 'person', 'chat-left-dots'],
-                           default_index=0)
+    selected = option_menu(
+        "HEALTH AI",
+        [
+            "Diabetes Prediction",
+            "Heart Disease Prediction",
+            "Parkinsons Prediction",
+            "Chat with HealthBot",
+        ],
+        menu_icon="hospital-fill",
+        icons=["activity", "heart", "person", "chat-left-dots"],
+        default_index=0,
+    )
 
 # Record landing and page switches
 if st.session_state.get("last_selected") != selected:
@@ -135,18 +148,18 @@ if st.session_state.get("last_selected") != selected:
     record_visit(selected)
     st.session_state["last_selected"] = selected
 
-if 'admin_authed' not in st.session_state:
-    st.session_state['admin_authed'] = False
-if 'admin_panel_open' not in st.session_state:
-    st.session_state['admin_panel_open'] = False
-if 'show_admin_login' not in st.session_state:
-    st.session_state['show_admin_login'] = False
+if "admin_authed" not in st.session_state:
+    st.session_state["admin_authed"] = False
+if "admin_panel_open" not in st.session_state:
+    st.session_state["admin_panel_open"] = False
+if "show_admin_login" not in st.session_state:
+    st.session_state["show_admin_login"] = False
 
-authed_flag = 'true' if st.session_state.get('admin_authed') else 'false'
-if st.session_state.get('admin_authed'):
+authed_flag = "true" if st.session_state.get("admin_authed") else "false"
+if st.session_state.get("admin_authed"):
     components.html(
-    ('<div id="stAdminAuthed" data-authed="' + authed_flag + '"></div>') +
-    """
+        ('<div id="stAdminAuthed" data-authed="' + authed_flag + '"></div>')
+        + """
     <style>
       .stAdminGearBtn{position:fixed;top:10px;right:200px;z-index:1000;width:36px;height:36px;border:none;border-radius:12px;
         background:linear-gradient(180deg,#1f2937,#0b1220);color:#e5e7eb;box-shadow:0 8px 20px rgba(0,0,0,.35);
@@ -213,99 +226,117 @@ if st.session_state.get('admin_authed'):
     })();
     </script>
     """,
-    height=0,
-)
+        height=0,
+    )
 
 try:
     qp = st.query_params
-    if qp.get('admin', '0') == '1':
-        if st.session_state.get('admin_authed'):
-            st.session_state['admin_panel_open'] = True
+    if qp.get("admin", "0") == "1":
+        if st.session_state.get("admin_authed"):
+            st.session_state["admin_panel_open"] = True
         else:
-            st.session_state['show_admin_login'] = True
+            st.session_state["show_admin_login"] = True
         try:
-            del st.query_params['admin']
+            del st.query_params["admin"]
         except Exception:
             pass
 except Exception:
     pass
 
-top_spacer, top_admin_col = st.columns([9,1])
+top_spacer, top_admin_col = st.columns([9, 1])
 with top_admin_col:
-    if st.button('⚙️', key='admin_btn'):
-        st.session_state['show_admin_login'] = not st.session_state.get('show_admin_login', False)
+    if st.button("⚙️", key="admin_btn"):
+        st.session_state["show_admin_login"] = not st.session_state.get("show_admin_login", False)
         st.rerun()
 
-if st.session_state.get('show_admin_login') and not st.session_state.get('admin_authed'):
+if st.session_state.get("show_admin_login") and not st.session_state.get("admin_authed"):
     try:
-        admin_pw_env = st.secrets.get('ADMIN_PASSWORD', os.environ.get('ADMIN_PASSWORD'))
+        admin_pw_env = st.secrets.get("ADMIN_PASSWORD", os.environ.get("ADMIN_PASSWORD"))
     except Exception:
-        admin_pw_env = os.environ.get('ADMIN_PASSWORD')
+        admin_pw_env = os.environ.get("ADMIN_PASSWORD")
     # Cooldown for repeated failures
     import time as _t
+
     now_ts = int(_t.time())
-    next_try = st.session_state.get('admin_next_try', 0)
+    next_try = st.session_state.get("admin_next_try", 0)
     if now_ts < next_try:
         st.warning(f"Too many failed attempts. Try again in {next_try - now_ts}s.")
         st.stop()
-    entered = st.text_input('Admin password', type='password', key='admin_pw_input')
+    entered = st.text_input("Admin password", type="password", key="admin_pw_input")
     c1, c2 = st.columns(2)
     with c1:
-        if st.button('Unlock', key='unlock_admin'):
+        if st.button("Unlock", key="unlock_admin"):
             if admin_pw_env and entered == admin_pw_env:
-                st.session_state['admin_authed'] = True
-                st.session_state['admin_panel_open'] = True
-                st.session_state['show_admin_login'] = False
-                st.session_state['admin_fail_count'] = 0
+                st.session_state["admin_authed"] = True
+                st.session_state["admin_panel_open"] = True
+                st.session_state["show_admin_login"] = False
+                st.session_state["admin_fail_count"] = 0
                 st.rerun()
             else:
-                st.error('Invalid password or ADMIN_PASSWORD not set.')
-                fails = int(st.session_state.get('admin_fail_count', 0)) + 1
-                st.session_state['admin_fail_count'] = fails
+                st.error("Invalid password or ADMIN_PASSWORD not set.")
+                fails = int(st.session_state.get("admin_fail_count", 0)) + 1
+                st.session_state["admin_fail_count"] = fails
                 # Exponential cooldown up to 5 minutes
                 wait = min(300, int(5 * (2 ** (fails - 1))))
-                st.session_state['admin_next_try'] = int(_t.time()) + wait
+                st.session_state["admin_next_try"] = int(_t.time()) + wait
     with c2:
-        if st.button('Cancel', key='cancel_admin'):
-            st.session_state['show_admin_login'] = False
+        if st.button("Cancel", key="cancel_admin"):
+            st.session_state["show_admin_login"] = False
             st.rerun()
 
 # Diabetes Prediction Page
-if selected == 'Diabetes Prediction':
-    st.title('Diabetes Prediction using ML')
+if selected == "Diabetes Prediction":
+    st.title("Diabetes Prediction using ML")
 
     if diabetes_model is None:
-        st.error('Model currently unavailable. Please refresh or try again later.')
+        st.error("Model currently unavailable. Please refresh or try again later.")
         st.stop()
 
     col1, col2, col3 = st.columns(3)
 
     with col1:
-        Pregnancies = st.number_input('Number of Pregnancies', min_value=0, max_value=20, step=1, value=0)
+        Pregnancies = st.number_input(
+            "Number of Pregnancies", min_value=0, max_value=20, step=1, value=0
+        )
     with col2:
-        Glucose = st.number_input('Glucose Level', min_value=0.0, max_value=300.0, step=1.0, value=120.0)
+        Glucose = st.number_input(
+            "Glucose Level", min_value=0.0, max_value=300.0, step=1.0, value=120.0
+        )
     with col3:
-        BloodPressure = st.number_input('Blood Pressure value', min_value=0.0, max_value=200.0, step=1.0, value=70.0)
+        BloodPressure = st.number_input(
+            "Blood Pressure value", min_value=0.0, max_value=200.0, step=1.0, value=70.0
+        )
     with col1:
-        SkinThickness = st.number_input('Skin Thickness value', min_value=0.0, max_value=99.0, step=1.0, value=20.0)
+        SkinThickness = st.number_input(
+            "Skin Thickness value", min_value=0.0, max_value=99.0, step=1.0, value=20.0
+        )
     with col2:
-        Insulin = st.number_input('Insulin Level', min_value=0.0, max_value=900.0, step=1.0, value=80.0)
+        Insulin = st.number_input(
+            "Insulin Level", min_value=0.0, max_value=900.0, step=1.0, value=80.0
+        )
     with col3:
-        BMI = st.number_input('BMI value', min_value=0.0, max_value=80.0, step=0.1, value=24.0)
+        BMI = st.number_input("BMI value", min_value=0.0, max_value=80.0, step=0.1, value=24.0)
     with col1:
-        DiabetesPedigreeFunction = st.number_input('Diabetes Pedigree Function value', min_value=0.0, max_value=2.5, step=0.01, value=0.5)
+        DiabetesPedigreeFunction = st.number_input(
+            "Diabetes Pedigree Function value", min_value=0.0, max_value=2.5, step=0.01, value=0.5
+        )
     with col2:
-        Age = st.number_input('Age of the Person', min_value=0, max_value=120, step=1, value=30)
+        Age = st.number_input("Age of the Person", min_value=0, max_value=120, step=1, value=30)
 
-    diab_diagnosis = ''
-    precautions = ''
-    if st.button('Diabetes Test Result'):
+    diab_diagnosis = ""
+    precautions = ""
+    if st.button("Diabetes Test Result"):
         try:
             # Convert inputs to float and validate ranges
             user_input = [
-                float(Pregnancies), float(Glucose), float(BloodPressure),
-                float(SkinThickness), float(Insulin), float(BMI),
-                float(DiabetesPedigreeFunction), float(Age)
+                float(Pregnancies),
+                float(Glucose),
+                float(BloodPressure),
+                float(SkinThickness),
+                float(Insulin),
+                float(BMI),
+                float(DiabetesPedigreeFunction),
+                float(Age),
             ]
             if not (0 <= user_input[0] <= 20):
                 st.warning("Number of Pregnancies must be between 0 and 20.")
@@ -325,11 +356,15 @@ if selected == 'Diabetes Prediction':
                 st.warning("Age must be between 0 and 120.")
             else:
                 diab_prediction = diabetes_model.predict([user_input])
-                diab_diagnosis = 'The person is diabetic' if diab_prediction[0] == 1 else 'The person is not diabetic'
+                diab_diagnosis = (
+                    "The person is diabetic"
+                    if diab_prediction[0] == 1
+                    else "The person is not diabetic"
+                )
 
                 # Provide additional information based on prediction
                 if diab_prediction[0] == 1:
-                    precautions = '''
+                    precautions = """
                     **Precautions:**
                      - Follow a healthy and balanced diet, focusing on whole grains, vegetables, lean proteins, and healthy fats.
                     - Engage in regular physical activity, such as walking, swimming, or strength training, for at least 30 minutes a day.
@@ -342,12 +377,12 @@ if selected == 'Diabetes Prediction':
                     - Limit alcohol intake and avoid smoking, as both can interfere with diabetes management.
                     - Be aware of the signs of high or low blood sugar (e.g., dizziness, fatigue, shaking) and know how to respond.
                     - Consider joining a support group to stay motivated and share experiences with others managing diabetes.
-                 '''
+                 """
 
                 else:
-                    precautions = '''
+                    precautions = """
                     "Maintain this healthy life and stay active!"
-                    '''
+                    """
                 st.success(diab_diagnosis)
                 st.markdown(precautions, unsafe_allow_html=True)
         except ValueError:
@@ -356,51 +391,108 @@ if selected == 'Diabetes Prediction':
             st.error("Prediction failed. Please refresh and try again.")
 
 # Heart Disease Prediction Page
-if selected == 'Heart Disease Prediction':
-    st.title('Heart Disease Prediction using ML')
+if selected == "Heart Disease Prediction":
+    st.title("Heart Disease Prediction using ML")
 
     if heart_disease_model is None:
-        st.error('Model currently unavailable. Please refresh or try again later.')
+        st.error("Model currently unavailable. Please refresh or try again later.")
         st.stop()
 
     col1, col2, col3 = st.columns(3)
 
     with col1:
-        age = st.number_input('Age', min_value=0, max_value=120, step=1, value=40)
+        age = st.number_input("Age", min_value=0, max_value=120, step=1, value=40)
     with col2:
-        sex = st.selectbox('Sex', options=[('Female',0),('Male',1)], index=1, format_func=lambda x: x[0])[1]
+        sex = st.selectbox(
+            "Sex", options=[("Female", 0), ("Male", 1)], index=1, format_func=lambda x: x[0]
+        )[1]
     with col3:
-        cp = st.selectbox('Chest Pain types', options=[('Typical angina',0),('Atypical angina',1),('Non-anginal pain',2),('Asymptomatic',3)], index=0, format_func=lambda x: x[0])[1]
+        cp = st.selectbox(
+            "Chest Pain types",
+            options=[
+                ("Typical angina", 0),
+                ("Atypical angina", 1),
+                ("Non-anginal pain", 2),
+                ("Asymptomatic", 3),
+            ],
+            index=0,
+            format_func=lambda x: x[0],
+        )[1]
     with col1:
-        trestbps = st.number_input('Resting Blood Pressure', min_value=0.0, max_value=200.0, step=1.0, value=120.0)
+        trestbps = st.number_input(
+            "Resting Blood Pressure", min_value=0.0, max_value=200.0, step=1.0, value=120.0
+        )
     with col2:
-        chol = st.number_input('Serum Cholesterol (mg/dl)', min_value=0.0, max_value=600.0, step=1.0, value=200.0)
+        chol = st.number_input(
+            "Serum Cholesterol (mg/dl)", min_value=0.0, max_value=600.0, step=1.0, value=200.0
+        )
     with col3:
-        fbs = st.selectbox('Fasting Blood Sugar > 120 mg/dl', options=[('No',0),('Yes',1)], index=0, format_func=lambda x: x[0])[1]
+        fbs = st.selectbox(
+            "Fasting Blood Sugar > 120 mg/dl",
+            options=[("No", 0), ("Yes", 1)],
+            index=0,
+            format_func=lambda x: x[0],
+        )[1]
     with col1:
-        restecg = st.selectbox('Resting ECG results', options=[('Normal',0),('ST-T abnormality',1),('LV hypertrophy',2)], index=0, format_func=lambda x: x[0])[1]
+        restecg = st.selectbox(
+            "Resting ECG results",
+            options=[("Normal", 0), ("ST-T abnormality", 1), ("LV hypertrophy", 2)],
+            index=0,
+            format_func=lambda x: x[0],
+        )[1]
     with col2:
-        thalach = st.number_input('Maximum Heart Rate', min_value=0.0, max_value=220.0, step=1.0, value=150.0)
+        thalach = st.number_input(
+            "Maximum Heart Rate", min_value=0.0, max_value=220.0, step=1.0, value=150.0
+        )
     with col3:
-        exang = st.selectbox('Exercise Induced Angina', options=[('No',0),('Yes',1)], index=0, format_func=lambda x: x[0])[1]
+        exang = st.selectbox(
+            "Exercise Induced Angina",
+            options=[("No", 0), ("Yes", 1)],
+            index=0,
+            format_func=lambda x: x[0],
+        )[1]
     with col1:
-        oldpeak = st.number_input('ST depression induced by exercise', min_value=0.0, max_value=6.0, step=0.1, value=1.0)
+        oldpeak = st.number_input(
+            "ST depression induced by exercise", min_value=0.0, max_value=6.0, step=0.1, value=1.0
+        )
     with col2:
-        slope = st.selectbox('Slope of peak exercise ST', options=[('Upsloping',0),('Flat',1),('Downsloping',2)], index=1, format_func=lambda x: x[0])[1]
+        slope = st.selectbox(
+            "Slope of peak exercise ST",
+            options=[("Upsloping", 0), ("Flat", 1), ("Downsloping", 2)],
+            index=1,
+            format_func=lambda x: x[0],
+        )[1]
     with col3:
-        ca = st.number_input('Major vessels colored by fluoroscopy', min_value=0, max_value=4, step=1, value=0)
+        ca = st.number_input(
+            "Major vessels colored by fluoroscopy", min_value=0, max_value=4, step=1, value=0
+        )
     with col1:
-        thal = st.selectbox('Thal', options=[('Normal',0),('Fixed defect',1),('Reversible defect',2)], index=0, format_func=lambda x: x[0])[1]
+        thal = st.selectbox(
+            "Thal",
+            options=[("Normal", 0), ("Fixed defect", 1), ("Reversible defect", 2)],
+            index=0,
+            format_func=lambda x: x[0],
+        )[1]
 
-    heart_diagnosis = ''
-    precautions = ''
-    if st.button('Heart Disease Test Result'):
+    heart_diagnosis = ""
+    precautions = ""
+    if st.button("Heart Disease Test Result"):
         try:
             # Convert inputs to float and validate ranges
             user_input = [
-                float(age), float(sex), float(cp), float(trestbps),
-                float(chol), float(fbs), float(restecg), float(thalach),
-                float(exang), float(oldpeak), float(slope), float(ca), float(thal)
+                float(age),
+                float(sex),
+                float(cp),
+                float(trestbps),
+                float(chol),
+                float(fbs),
+                float(restecg),
+                float(thalach),
+                float(exang),
+                float(oldpeak),
+                float(slope),
+                float(ca),
+                float(thal),
             ]
             if not (0 <= user_input[0] <= 120):
                 st.warning("Age must be between 0 and 120.")
@@ -430,11 +522,15 @@ if selected == 'Heart Disease Prediction':
                 st.warning("Thal must be between 0 and 2.")
             else:
                 heart_prediction = heart_disease_model.predict([user_input])
-                heart_diagnosis = 'The person is having heart disease' if heart_prediction[0] == 1 else 'The person does not have heart disease'
+                heart_diagnosis = (
+                    "The person is having heart disease"
+                    if heart_prediction[0] == 1
+                    else "The person does not have heart disease"
+                )
 
                 # Provide additional information based on prediction
                 if heart_prediction[0] == 1:
-                   precautions = '''
+                    precautions = """
                       **Precautions:**
                     - Monitor your cholesterol and blood pressure regularly to keep them within healthy ranges.
                      - Follow a heart-healthy diet, rich in fruits, vegetables, whole grains, lean proteins, and healthy fats (e.g., olive oil, avocados, nuts).
@@ -448,12 +544,12 @@ if selected == 'Heart Disease Prediction':
                     - Regularly check your blood sugar levels if you have diabetes, as it can increase heart disease risk.
                     - Consult with a healthcare provider regularly for personalized treatment and prevention strategies.
                     - Limit your salt intake to help manage blood pressure and reduce fluid retention.
-                    '''
+                    """
 
                 else:
-                    precautions = '''
+                    precautions = """
                     "Keep up the good work in maintaining heart health!"
-                    '''
+                    """
                 st.success(heart_diagnosis)
                 st.markdown(precautions, unsafe_allow_html=True)
         except ValueError:
@@ -466,75 +562,97 @@ if selected == "Parkinsons Prediction":
     st.title("Parkinson's Disease Prediction using ML")
 
     if parkinsons_model is None:
-        st.error('Model currently unavailable. Please refresh or try again later.')
+        st.error("Model currently unavailable. Please refresh or try again later.")
         st.stop()
 
     col1, col2, col3, col4, col5 = st.columns(5)
 
     with col1:
-        fo = st.text_input('MDVP:Fo(Hz)')
+        fo = st.text_input("MDVP:Fo(Hz)")
     with col2:
-        fhi = st.text_input('MDVP:Fhi(Hz)')
+        fhi = st.text_input("MDVP:Fhi(Hz)")
     with col3:
-        flo = st.text_input('MDVP:Flo(Hz)')
+        flo = st.text_input("MDVP:Flo(Hz)")
     with col4:
-        Jitter_percent = st.text_input('MDVP:Jitter(%)')
+        Jitter_percent = st.text_input("MDVP:Jitter(%)")
     with col5:
-        Jitter_Abs = st.text_input('MDVP:Jitter(Abs)')
+        Jitter_Abs = st.text_input("MDVP:Jitter(Abs)")
     with col1:
-        RAP = st.text_input('MDVP:RAP')
+        RAP = st.text_input("MDVP:RAP")
     with col2:
-        PPQ = st.text_input('MDVP:PPQ')
+        PPQ = st.text_input("MDVP:PPQ")
     with col3:
-        DDP = st.text_input('MDVP:DDP')
+        DDP = st.text_input("MDVP:DDP")
     with col4:
-        Shimmer = st.text_input('MDVP:Shimmer')
+        Shimmer = st.text_input("MDVP:Shimmer")
     with col5:
-        Shimmer_dB = st.text_input('MDVP:Shimmer(dB)')
+        Shimmer_dB = st.text_input("MDVP:Shimmer(dB)")
     with col1:
-        APQ3 = st.text_input('MDVP:APQ3')
+        APQ3 = st.text_input("MDVP:APQ3")
     with col2:
-        APQ5 = st.text_input('MDVP:APQ5')
+        APQ5 = st.text_input("MDVP:APQ5")
     with col3:
-        APQ = st.text_input('MDVP:APQ')
+        APQ = st.text_input("MDVP:APQ")
     with col4:
-        DDA = st.text_input('Shimmer:DDA')
+        DDA = st.text_input("Shimmer:DDA")
     with col5:
-        NHR = st.text_input('NHR')
+        NHR = st.text_input("NHR")
     with col1:
-        HNR = st.text_input('HNR')
+        HNR = st.text_input("HNR")
     with col2:
-        RPDE = st.text_input('RPDE')
+        RPDE = st.text_input("RPDE")
     with col3:
-        DFA = st.text_input('DFA')
+        DFA = st.text_input("DFA")
     with col4:
-        spread1 = st.text_input('spread1')
+        spread1 = st.text_input("spread1")
     with col5:
-        spread2 = st.text_input('spread2')
+        spread2 = st.text_input("spread2")
     with col1:
-        D2 = st.text_input('D2')
+        D2 = st.text_input("D2")
     with col2:
-        PPE = st.text_input('PPE')
+        PPE = st.text_input("PPE")
 
-    parkinsons_diagnosis = ''
-    precautions = ''
+    parkinsons_diagnosis = ""
+    precautions = ""
     if st.button("Parkinson's Test Result"):
         try:
             # Convert inputs to float
             user_input = [
-                float(fo), float(fhi), float(flo), float(Jitter_percent), float(Jitter_Abs),
-                float(RAP), float(PPQ), float(DDP), float(Shimmer), float(Shimmer_dB),
-                float(APQ3), float(APQ5), float(APQ), float(DDA), float(NHR), float(HNR),
-                float(RPDE), float(DFA), float(spread1), float(spread2), float(D2), float(PPE)
+                float(fo),
+                float(fhi),
+                float(flo),
+                float(Jitter_percent),
+                float(Jitter_Abs),
+                float(RAP),
+                float(PPQ),
+                float(DDP),
+                float(Shimmer),
+                float(Shimmer_dB),
+                float(APQ3),
+                float(APQ5),
+                float(APQ),
+                float(DDA),
+                float(NHR),
+                float(HNR),
+                float(RPDE),
+                float(DFA),
+                float(spread1),
+                float(spread2),
+                float(D2),
+                float(PPE),
             ]
 
             if any(x < 0 or x > 1000 for x in user_input):  # Example range for input values
                 st.warning("Please enter values within a reasonable range (0-1000).")
             else:
                 parkinsons_prediction = parkinsons_model.predict([user_input])
-                parkinsons_diagnosis = "The person has Parkinson's disease" if parkinsons_prediction[0] == 1 else "The person does not have Parkinson's disease"
+                parkinsons_diagnosis = (
+                    "The person has Parkinson's disease"
+                    if parkinsons_prediction[0] == 1
+                    else "The person does not have Parkinson's disease"
+                )
                 if parkinsons_prediction[0] == 1:
-                    precautions = '''
+                    precautions = """
                      **Precautions:**
                      - Follow your doctor’s advice for medication and therapy, including speech and physical therapy, as recommended.
                      - Stay physically and mentally active by engaging in exercises that promote flexibility, strength, and balance.
@@ -548,12 +666,12 @@ if selected == "Parkinsons Prediction":
                     - Stay up-to-date with regular check-ups and adjust treatments as needed to manage symptoms.
                      - Limit caffeine intake as it can sometimes interfere with Parkinson’s medication.
                     - Stay positive and engaged with hobbies, social activities, and interests to boost mental well-being.
-                    '''
+                    """
 
                 else:
-                   precautions = '''
+                    precautions = """
                 "Maintain your healthy lifestyle and keep active!"
-                '''
+                """
                 st.success(parkinsons_diagnosis)
                 st.markdown(precautions, unsafe_allow_html=True)
         except ValueError:
@@ -561,20 +679,21 @@ if selected == "Parkinsons Prediction":
         except Exception:
             st.error("Prediction failed. Please refresh and try again.")
 # Chatbot Page
-if selected == 'Chat with HealthBot':
+if selected == "Chat with HealthBot":
     st.title("Chat with HealthBot 🩺")
-    st.info("This assistant provides general information and is not a medical professional. For medical advice, please consult a qualified clinician.")
+    st.info(
+        "This assistant provides general information and is not a medical professional. For medical advice, please consult a qualified clinician."
+    )
 
     # Display last chat error if it exists, then clear it
-    if 'last_chat_error' in st.session_state and st.session_state.last_chat_error:
+    if "last_chat_error" in st.session_state and st.session_state.last_chat_error:
         st.error(f"HealthBot Error: {st.session_state.last_chat_error}")
         del st.session_state.last_chat_error
 
-
     # Debug panel for last chat error
-    _last_err = st.session_state.get('last_chat_error')
+    _last_err = st.session_state.get("last_chat_error")
     if _last_err:
-        with st.expander('Debug: Last chat error'):
+        with st.expander("Debug: Last chat error"):
             st.code(str(_last_err))
 
     # Example prompts placed near the message box
@@ -597,13 +716,13 @@ if selected == 'Chat with HealthBot':
     ]
 
     # Select 3 random, unique examples to display
-    if 'current_examples' not in st.session_state:
+    if "current_examples" not in st.session_state:
         st.session_state.current_examples = random.sample(all_examples, 3)
 
     for i, text in enumerate(st.session_state.current_examples):
         if ex_cols[i % 3].button(text, key=f"ex_{i}"):
             st.session_state["user_input"] = text
-            st.session_state['auto_submit'] = True
+            st.session_state["auto_submit"] = True
             # When an example is clicked, clear the current examples to get new ones on rerun
             del st.session_state.current_examples
             st.rerun()
@@ -611,7 +730,9 @@ if selected == 'Chat with HealthBot':
     # If API key is missing, allow user to enter it securely at runtime
     if not api_key:
         st.warning("OPENAI_API_KEY is not set. Enter a valid key below to use the chatbot.")
-        key_input = st.text_input("OpenAI API Key", type="password", placeholder="sk-...", key="key_input")
+        key_input = st.text_input(
+            "OpenAI API Key", type="password", placeholder="sk-...", key="key_input"
+        )
         if st.button("Save API Key"):
             if key_input and key_input.strip():
                 key_val = key_input.strip()
@@ -631,38 +752,43 @@ if selected == 'Chat with HealthBot':
     # Rate limiting per session (simple sliding window)
     def _allow_chat_send(limit=10, window_s=60):
         import time as _t
-        log = st.session_state.get('rate_log', [])
+
+        log = st.session_state.get("rate_log", [])
         now = _t.time()
         log = [t for t in log if now - t < window_s]
         if len(log) >= limit:
-            st.session_state['rate_log'] = log
+            st.session_state["rate_log"] = log
             return False, int(window_s - (now - log[0]))
         log.append(now)
-        st.session_state['rate_log'] = log
+        st.session_state["rate_log"] = log
         return True, 0
 
     # Model settings (persist in session)
-    provider = 'openai'
-    if os.getenv('OPENAI_PROVIDER') == 'openrouter' or (api_key and api_key.startswith('sk-or-')):
-        provider = 'openrouter'
+    provider = "openai"
+    if os.getenv("OPENAI_PROVIDER") == "openrouter" or (api_key and api_key.startswith("sk-or-")):
+        provider = "openrouter"
 
-    if provider == 'openrouter':
+    if provider == "openrouter":
         st.session_state.chat_model = "openrouter/auto"
         st.session_state.available_models = [
             "openai/gpt-4o",
             "anthropic/claude-3.5-sonnet",
             "google/gemini-1.5-pro",
-            "openai/gpt-4-turbo"
+            "openai/gpt-4-turbo",
         ]
     else:
         st.session_state.chat_model = "gpt-3.5-turbo"
         st.session_state.available_models = ["gpt-3.5-turbo", "gpt-4o-mini"]
     st.session_state.chat_temp = 0.2
 
-
     # Initialize messages in session state
     if "messages" not in st.session_state:
-        st.session_state.messages = [{"role": "assistant", "content": "Hi! I'm your health assistant. How can I help you today?"}]
+        st.session_state.messages = [
+            {
+                "role": "assistant",
+                "content": "Hi! I'm your health assistant. How can I help you today?",
+            }
+        ]
 
     # Utility to cap history length (keep system/assistant greeting + last 6 exchanges)
     def capped_history(base_messages):
@@ -689,34 +815,34 @@ if selected == 'Chat with HealthBot':
     # If a transcript arrived via query params from the mic component, prefill the input
     try:
         qp = st.query_params
-        _stt = qp.get('stt')
+        _stt = qp.get("stt")
         if _stt:
             st.session_state["user_input"] = _stt
             # Flag auto submit if requested
-            if qp.get('autosend', '0') == '1':
-                st.session_state['auto_submit'] = True
+            if qp.get("autosend", "0") == "1":
+                st.session_state["auto_submit"] = True
             # remove params to avoid repeated fills
             try:
-                del st.query_params['stt']
+                del st.query_params["stt"]
             except Exception:
                 pass
             try:
-                del st.query_params['autosend']
+                del st.query_params["autosend"]
             except Exception:
                 pass
         # Handle attach toggle from polished buttons
-        _att = qp.get('attach')
+        _att = qp.get("attach")
         if _att is not None:
-            st.session_state['show_attach'] = (_att == '1')
+            st.session_state["show_attach"] = _att == "1"
             try:
-                del st.query_params['attach']
+                del st.query_params["attach"]
             except Exception:
                 pass
     except Exception:
         pass
 
-    if 'show_attach' not in st.session_state:
-        st.session_state['show_attach'] = False
+    if "show_attach" not in st.session_state:
+        st.session_state["show_attach"] = False
 
     # Chat input in a form to avoid reruns while typing
     with st.form("chat_form", clear_on_submit=False):
@@ -755,26 +881,31 @@ if selected == 'Chat with HealthBot':
         )
         col_in, col_btn = st.columns([11, 1])
         with col_in:
-            user_input = st.text_input("Your Message:", key="user_input", placeholder="Type your message here...", label_visibility="collapsed")
+            user_input = st.text_input(
+                "Your Message:",
+                key="user_input",
+                placeholder="Type your message here...",
+                label_visibility="collapsed",
+            )
             st.caption("Press Enter to send • Shift+Enter for newline")
         with col_btn:
             submitted = st.form_submit_button("Send", use_container_width=True)
 
-        # Controls row below the input: + Attach 
-        ctrl_attach, _sp = st.columns([1,11])
+        # Controls row below the input: + Attach
+        ctrl_attach, _sp = st.columns([1, 11])
         with ctrl_attach:
             if st.form_submit_button(" Attach"):
-                st.session_state['show_attach'] = not st.session_state.get('show_attach', False)
+                st.session_state["show_attach"] = not st.session_state.get("show_attach", False)
                 st.rerun()
 
     # Inline attachments panel (toggles with Attach)
-    if st.session_state.get('show_attach'):
-        files_col, photo_col = st.columns([2,1])
+    if st.session_state.get("show_attach"):
+        files_col, photo_col = st.columns([2, 1])
         with files_col:
             uploaded_files = st.file_uploader(
                 "Upload documents (PDF/TXT/CSV/JSON or images)",
                 accept_multiple_files=True,
-                type=["pdf","txt","csv","json","png","jpg","jpeg","webp","heic","heif"],
+                type=["pdf", "txt", "csv", "json", "png", "jpg", "jpeg", "webp", "heic", "heif"],
             )
             # Validate uploads (size and mime best-effort)
             if uploaded_files:
@@ -791,35 +922,37 @@ if selected == 'Chat with HealthBot':
                         pass
                 if too_large:
                     st.warning(f"Skipped large files (>5MB): {', '.join(too_large)}")
-                st.session_state['validated_uploads'] = safe
+                st.session_state["validated_uploads"] = safe
         with photo_col:
-            if 'photo_mode' not in st.session_state:
-                st.session_state['photo_mode'] = 'camera'
+            if "photo_mode" not in st.session_state:
+                st.session_state["photo_mode"] = "camera"
             pm_left, pm_right = st.columns(2)
             with pm_left:
                 if st.button("Camera", type="secondary"):
-                    st.session_state['photo_mode'] = 'camera'
+                    st.session_state["photo_mode"] = "camera"
                     st.rerun()
             with pm_right:
                 if st.button("Library", type="secondary"):
-                    st.session_state['photo_mode'] = 'library'
+                    st.session_state["photo_mode"] = "library"
                     st.rerun()
-            if st.session_state.get('photo_mode') == 'camera':
+            if st.session_state.get("photo_mode") == "camera":
                 captured_photo = st.camera_input("Take a photo")
             else:
                 captured_photo = st.file_uploader(
                     "Upload from phone library",
                     accept_multiple_files=False,
-                    type=["png","jpg","jpeg","webp","heic","heif"],
+                    type=["png", "jpg", "jpeg", "webp", "heic", "heif"],
                 )
         if uploaded_files is not None:
-            st.session_state["uploaded_files_info"] = [getattr(f,'name','file') for f in uploaded_files]
+            st.session_state["uploaded_files_info"] = [
+                getattr(f, "name", "file") for f in uploaded_files
+            ]
             st.session_state["uploaded_files_objs"] = uploaded_files
         if captured_photo is not None:
             st.session_state["captured_photo"] = captured_photo
 
         # Attachment previews and management
-        prev_left, prev_right = st.columns([3,1])
+        prev_left, prev_right = st.columns([3, 1])
         with prev_left:
             st.caption("Attached:")
             files = list(st.session_state.get("uploaded_files_objs") or [])
@@ -832,11 +965,14 @@ if selected == 'Chat with HealthBot':
             if files:
                 for i, f in enumerate(files[:6]):
                     try:
-                        name = getattr(f, 'name', f"photo_{i+1}")
-                        mime = getattr(f, 'type', 'application/octet-stream')
-                        data = f.getvalue() if hasattr(f, 'getvalue') else None
-                        is_img = (mime.startswith('image/') or (name.lower().split('.')[-1] in ["png","jpg","jpeg","webp","heic","heif"]))
-                        cols = st.columns([1,5,1])
+                        name = getattr(f, "name", f"photo_{i+1}")
+                        mime = getattr(f, "type", "application/octet-stream")
+                        data = f.getvalue() if hasattr(f, "getvalue") else None
+                        is_img = mime.startswith("image/") or (
+                            name.lower().split(".")[-1]
+                            in ["png", "jpg", "jpeg", "webp", "heic", "heif"]
+                        )
+                        cols = st.columns([1, 5, 1])
                         with cols[0]:
                             if is_img and data is not None:
                                 st.image(data, width=54, caption="")
@@ -847,14 +983,16 @@ if selected == 'Chat with HealthBot':
                         with cols[2]:
                             if st.button("", key=f"att_remove_{i}"):
                                 base_list = list(st.session_state.get("uploaded_files_objs") or [])
-                                if cam is not None and i == len(files)-1 and f is cam:
+                                if cam is not None and i == len(files) - 1 and f is cam:
                                     st.session_state.pop("captured_photo", None)
                                 else:
                                     # remove by index if in base_list
                                     if i < len(base_list):
                                         base_list.pop(i)
                                         st.session_state["uploaded_files_objs"] = base_list
-                                        st.session_state["uploaded_files_info"] = [getattr(x,'name','file') for x in base_list]
+                                        st.session_state["uploaded_files_info"] = [
+                                            getattr(x, "name", "file") for x in base_list
+                                        ]
                                 st.rerun()
                     except Exception:
                         pass
@@ -868,17 +1006,17 @@ if selected == 'Chat with HealthBot':
                 st.rerun()
 
     # Auto-submit if mic requested it
-    if st.session_state.get('auto_submit') and st.session_state.get('user_input'):
+    if st.session_state.get("auto_submit") and st.session_state.get("user_input"):
         submitted = True
-        st.session_state.pop('auto_submit', None)
+        st.session_state.pop("auto_submit", None)
 
-    col_sp, col_clear = st.columns([11,1])
+    col_sp, col_clear = st.columns([11, 1])
     clear_clicked = col_clear.button("Clear Chat", use_container_width=True)
 
     # JS handler for Enter-to-send (uses query params like the voice button)
     try:
         _soe = True
-        _flag = 'true' if _soe else 'false'
+        _flag = "true" if _soe else "false"
         components.html(
             """
             <script>
@@ -887,7 +1025,9 @@ if selected == 'Chat with HealthBot':
               function wire(){
                 if(wired) return; const input=D.querySelector('input[placeholder=\"Type your message here...\"]'); if(!input) return;
                 input.addEventListener('keydown', function(e){
-                  if(e.key==='Enter' && !e.shiftKey && """ + _flag + """ ){
+                  if(e.key==='Enter' && !e.shiftKey && """
+            + _flag
+            + """ ){
                     e.preventDefault(); try{
                       const u=new URL(P.location); u.searchParams.set('stt', input.value||''); u.searchParams.set('autosend','1'); P.location.href=u.toString();
                     }catch(err){}
@@ -905,7 +1045,12 @@ if selected == 'Chat with HealthBot':
         pass
 
     if clear_clicked:
-        st.session_state.messages = [{"role": "assistant", "content": "Hi! I'm your health assistant. How can I help you today?"}]
+        st.session_state.messages = [
+            {
+                "role": "assistant",
+                "content": "Hi! I'm your health assistant. How can I help you today?",
+            }
+        ]
         st.session_state.pop("uploaded_files_info", None)
         st.session_state.pop("uploaded_files_objs", None)
         st.session_state.pop("captured_photo", None)
@@ -917,7 +1062,9 @@ if selected == 'Chat with HealthBot':
             # High-risk keyword guard
             risk_terms = ["chest pain", "shortness of breath", "suicidal", "heart attack", "stroke"]
             if any(term in user_input.lower() for term in risk_terms):
-                st.error("Your message may indicate a medical emergency. Please contact local emergency services or a qualified clinician immediately.")
+                st.error(
+                    "Your message may indicate a medical emergency. Please contact local emergency services or a qualified clinician immediately."
+                )
                 st.stop()
             content = user_input
             _att = []
@@ -932,21 +1079,34 @@ if selected == 'Chat with HealthBot':
             # Build attachment context to help the assistant use file contents
             attach_msgs = []
             try:
+
                 def _is_text_like(mime, name):
-                    ext = (name.rsplit('.',1)[-1].lower() if '.' in name else '')
-                    return (mime.startswith('text/') or ext in {'txt','csv','json','md','py','js','html','css'})
+                    ext = name.rsplit(".", 1)[-1].lower() if "." in name else ""
+                    return mime.startswith("text/") or ext in {
+                        "txt",
+                        "csv",
+                        "json",
+                        "md",
+                        "py",
+                        "js",
+                        "html",
+                        "css",
+                    }
+
                 def _read_pdf_text(data):
                     if not _pypdf:
                         return None
                     try:
                         from io import BytesIO
+
                         reader = _pypdf.PdfReader(BytesIO(data))
                         pages = []
                         for p in reader.pages[:5]:
-                            pages.append(p.extract_text() or '')
+                            pages.append(p.extract_text() or "")
                         return "\n".join(pages)
                     except Exception:
                         return None
+
                 MAX_CHARS = 4000
                 files = list(st.session_state.get("uploaded_files_objs") or [])
                 cam = st.session_state.get("captured_photo")
@@ -956,49 +1116,61 @@ if selected == 'Chat with HealthBot':
                     att_text_parts = []
                     for f in files[:4]:
                         try:
-                            name = getattr(f, 'name', 'attachment')
-                            mime = getattr(f, 'type', 'application/octet-stream')
-                            data = f.getvalue() if hasattr(f, 'getvalue') else None
+                            name = getattr(f, "name", "attachment")
+                            mime = getattr(f, "type", "application/octet-stream")
+                            data = f.getvalue() if hasattr(f, "getvalue") else None
                             snippet = None
-                            code_lang = 'text'
+                            code_lang = "text"
                             if data is not None:
                                 if _is_text_like(mime, name):
                                     try:
-                                        text = data.decode('utf-8', errors='replace')
+                                        text = data.decode("utf-8", errors="replace")
                                     except Exception:
                                         text = str(data[:4096])
                                     snippet = text[:MAX_CHARS]
                                     # Hint code block language
-                                    if name.lower().endswith('.csv'):
-                                        code_lang = 'csv'
-                                    elif name.lower().endswith('.json'):
-                                        code_lang = 'json'
-                                elif name.lower().endswith('.pdf'):
-                                    text = _read_pdf_text(data) or '[PDF text extraction unavailable]'
-                                    snippet = (text or '')[:MAX_CHARS]
+                                    if name.lower().endswith(".csv"):
+                                        code_lang = "csv"
+                                    elif name.lower().endswith(".json"):
+                                        code_lang = "json"
+                                elif name.lower().endswith(".pdf"):
+                                    text = (
+                                        _read_pdf_text(data) or "[PDF text extraction unavailable]"
+                                    )
+                                    snippet = (text or "")[:MAX_CHARS]
                                 else:
                                     # Images or binaries: include a note only
                                     snippet = None
                             header = f"Attachment: {name} ({mime})"
                             if snippet:
-                                att_text_parts.append(header + "\n\n" + f"```{code_lang}\n" + snippet + "\n```")
+                                att_text_parts.append(
+                                    header + "\n\n" + f"```{code_lang}\n" + snippet + "\n```"
+                                )
                             else:
-                                att_text_parts.append(header + "\n(Content not inlined; image or binary)")
+                                att_text_parts.append(
+                                    header + "\n(Content not inlined; image or binary)"
+                                )
                         except Exception:
                             pass
                     if att_text_parts:
-                        attach_msgs.append({"role":"user","content":"\n\n".join(att_text_parts)})
+                        attach_msgs.append({"role": "user", "content": "\n\n".join(att_text_parts)})
             except Exception:
                 pass
-            temp_messages = capped_history(st.session_state.messages + [temp_user_msg] + attach_msgs)
+            temp_messages = capped_history(
+                st.session_state.messages + [temp_user_msg] + attach_msgs
+            )
 
             try:
                 # Use helper with retries/backoff + correlation id
                 from chat.client import chat_completion
+
                 req_id = str(uuid.uuid4())
                 try:
                     import sentry_sdk as _s
-                    _s.add_breadcrumb(category="chat", message="submit", level="info", data={"request_id": req_id})
+
+                    _s.add_breadcrumb(
+                        category="chat", message="submit", level="info", data={"request_id": req_id}
+                    )
                 except Exception:
                     pass
                 with st.spinner("HealthBot is thinking..."):
@@ -1020,24 +1192,32 @@ if selected == 'Chat with HealthBot':
 
                 # Commit both user and assistant messages only on success with non-empty reply
                 if assistant_reply.strip():
-                    st.session_state.messages = temp_messages + [{"role": "assistant", "content": assistant_reply}]
-                    if 'last_chat_error' in st.session_state:
-                        del st.session_state['last_chat_error']
+                    st.session_state.messages = temp_messages + [
+                        {"role": "assistant", "content": assistant_reply}
+                    ]
+                    if "last_chat_error" in st.session_state:
+                        del st.session_state["last_chat_error"]
                     # chat messages not counted in visits by design
                 else:
                     # Remove the temp user message since the request failed to produce an answer
                     st.error("The assistant did not return any content. Please try again.")
                     try:
-                        st.session_state['last_chat_error'] = 'empty_reply'
+                        st.session_state["last_chat_error"] = "empty_reply"
                     except Exception:
                         pass
                 st.session_state["clear_user_input"] = True
 
                 # Debug log for API response
-                logging.info({"event":"chat.reply","preview": assistant_reply[:120]})
+                logging.info({"event": "chat.reply", "preview": assistant_reply[:120]})
                 try:
                     import sentry_sdk as _s
-                    _s.add_breadcrumb(category="chat", message="reply", level="info", data={"request_id": req_id, "preview": assistant_reply[:60]})
+
+                    _s.add_breadcrumb(
+                        category="chat",
+                        message="reply",
+                        level="info",
+                        data={"request_id": req_id, "preview": assistant_reply[:60]},
+                    )
                 except Exception:
                     pass
 
@@ -1045,44 +1225,44 @@ if selected == 'Chat with HealthBot':
                 st.rerun()  # Updated to the new rerun function.
 
             except Exception as e:
-                logging.error({"event":"chat.exception","error": str(e)})
+                logging.error({"event": "chat.exception", "error": str(e)})
                 st.error("The chat service is temporarily unavailable. Please try again shortly.")
                 try:
-                    st.session_state['last_chat_error'] = str(e)
+                    st.session_state["last_chat_error"] = str(e)
                 except Exception:
                     pass
 
 # Admin Panel
-if st.session_state.get('admin_panel_open'):
-    st.title('Admin Panel')
-    top_l, top_r = st.columns([8,1])
+if st.session_state.get("admin_panel_open"):
+    st.title("Admin Panel")
+    top_l, top_r = st.columns([8, 1])
     with top_r:
-        if st.button('Logout', key='admin_logout'):
-            st.session_state['admin_authed'] = False
-            st.session_state['admin_panel_open'] = False
-            st.session_state['show_admin_login'] = False
+        if st.button("Logout", key="admin_logout"):
+            st.session_state["admin_authed"] = False
+            st.session_state["admin_panel_open"] = False
+            st.session_state["show_admin_login"] = False
             st.rerun()
     # Require password from secrets/env
     try:
-        admin_pw_env = st.secrets.get('ADMIN_PASSWORD', os.environ.get('ADMIN_PASSWORD'))
+        admin_pw_env = st.secrets.get("ADMIN_PASSWORD", os.environ.get("ADMIN_PASSWORD"))
     except Exception:
-        admin_pw_env = os.environ.get('ADMIN_PASSWORD')
-    if not st.session_state.get('admin_authed'):
+        admin_pw_env = os.environ.get("ADMIN_PASSWORD")
+    if not st.session_state.get("admin_authed"):
         st.stop()
 
     # Filters
-    st.subheader('Filters')
-    scope = st.selectbox('Time range', ['All', 'Today', 'Last 7 days', 'Custom range'], index=1)
+    st.subheader("Filters")
+    scope = st.selectbox("Time range", ["All", "Today", "Last 7 days", "Custom range"], index=1)
     where = ""
     params = []
-    if scope == 'Today':
+    if scope == "Today":
         where = "WHERE date(last_ts)=date('now')"
-    elif scope == 'Last 7 days':
+    elif scope == "Last 7 days":
         where = "WHERE date(last_ts) >= date('now','-6 day')"
-    elif scope == 'Custom range':
+    elif scope == "Custom range":
         colA, colB = st.columns(2)
-        start = colA.date_input('Start (UTC)')
-        end = colB.date_input('End (UTC)')
+        start = colA.date_input("Start (UTC)")
+        end = colB.date_input("End (UTC)")
         where = "WHERE date(last_ts) BETWEEN ? AND ?"
         params = [str(start), str(end)]
 
@@ -1095,25 +1275,27 @@ if st.session_state.get('admin_panel_open'):
         cur.execute(f"SELECT COALESCE(SUM(count),0) FROM visits {where}", params)
         total_visits = cur.fetchone()[0] or 0
         col1, col2 = st.columns(2)
-        col1.metric('Unique visitors (session-based)', str(unique_visitors))
-        col2.metric('Total visits', str(total_visits))
+        col1.metric("Unique visitors (session-based)", str(unique_visitors))
+        col2.metric("Total visits", str(total_visits))
 
         # Visits by page
-        st.subheader('Visits by page')
-        cur.execute(f"SELECT page, SUM(count) FROM visits {where} GROUP BY page ORDER BY 2 DESC", params)
+        st.subheader("Visits by page")
+        cur.execute(
+            f"SELECT page, SUM(count) FROM visits {where} GROUP BY page ORDER BY 2 DESC", params
+        )
         rows = cur.fetchall()
         if rows:
-            st.table([{ 'page': r[0], 'visits': r[1]} for r in rows])
+            st.table([{"page": r[0], "visits": r[1]} for r in rows])
         else:
-            st.info('No visits recorded for this range.')
+            st.info("No visits recorded for this range.")
 
         # Detailed table with pagination
-        st.subheader('Details')
-        pg_size = st.selectbox('Rows per page', [10, 25, 50, 100], index=1)
-        page_idx = st.number_input('Page', min_value=1, step=1, value=1)
+        st.subheader("Details")
+        pg_size = st.selectbox("Rows per page", [10, 25, 50, 100], index=1)
+        page_idx = st.number_input("Page", min_value=1, step=1, value=1)
         limit = int(pg_size)
         offset = (int(page_idx) - 1) * limit
-        if _visits_kind == 'pg':
+        if _visits_kind == "pg":
             q = f"SELECT visitor_id, page, first_ts, last_ts, count, user_agent, ip FROM visits {where} ORDER BY last_ts DESC LIMIT %s OFFSET %s"
             q_params = list(params) + [limit, offset]
         else:
@@ -1125,45 +1307,73 @@ if st.session_state.get('admin_panel_open'):
             # Mask visitor IDs for privacy: show only first 4 and last 4 chars
             def _mask(v):
                 return v if not isinstance(v, str) or len(v) <= 8 else f"{v[:4]}…{v[-4:]}"
+
             def _mask_ip(ip):
                 if not isinstance(ip, str):
                     return ip
-                parts = ip.split('.')
+                parts = ip.split(".")
                 if len(parts) == 4:
-                    return '.'.join(parts[:3] + ['xxx'])
+                    return ".".join(parts[:3] + ["xxx"])
                 # IPv6 or others: truncate
-                return (ip[:12] + '…') if len(ip) > 12 else ip
+                return (ip[:12] + "…") if len(ip) > 12 else ip
+
             def _short(s):
-                return s[:60] + '…' if isinstance(s, str) and len(s) > 60 else s
-            data = [{'visitor_id': _mask(d[0]), 'page': d[1], 'first_ts': d[2], 'last_ts': d[3], 'count': d[4], 'user_agent': _short(d[5]), 'ip': _mask_ip(d[6])} for d in details]
+                return s[:60] + "…" if isinstance(s, str) and len(s) > 60 else s
+
+            data = [
+                {
+                    "visitor_id": _mask(d[0]),
+                    "page": d[1],
+                    "first_ts": d[2],
+                    "last_ts": d[3],
+                    "count": d[4],
+                    "user_agent": _short(d[5]),
+                    "ip": _mask_ip(d[6]),
+                }
+                for d in details
+            ]
             st.table(data)
             # CSV export
             import csv
             import io
+
             buf = io.StringIO()
-            writer = csv.DictWriter(buf, fieldnames=['visitor_id','page','first_ts','last_ts','count','user_agent','ip'])
+            writer = csv.DictWriter(
+                buf,
+                fieldnames=[
+                    "visitor_id",
+                    "page",
+                    "first_ts",
+                    "last_ts",
+                    "count",
+                    "user_agent",
+                    "ip",
+                ],
+            )
             writer.writeheader()
             writer.writerows(data)
-            st.download_button('Download CSV', data=buf.getvalue(), file_name='visits.csv', mime='text/csv')
+            st.download_button(
+                "Download CSV", data=buf.getvalue(), file_name="visits.csv", mime="text/csv"
+            )
         else:
-            st.info('No detailed rows for this range.')
+            st.info("No detailed rows for this range.")
 
         # Dangerous actions
-        st.subheader('Danger zone')
-        with st.form('reset_form'):
-            st.warning('This will permanently delete all visit records.')
+        st.subheader("Danger zone")
+        with st.form("reset_form"):
+            st.warning("This will permanently delete all visit records.")
             typed = st.text_input("Type DELETE to confirm", key="confirm_delete_text")
-            do_reset = st.form_submit_button('Reset analytics data')
-        if do_reset and typed.strip().upper() == 'DELETE':
+            do_reset = st.form_submit_button("Reset analytics data")
+        if do_reset and typed.strip().upper() == "DELETE":
             try:
-                cur.execute('DELETE FROM visits')
+                cur.execute("DELETE FROM visits")
                 visits_conn.commit()
-                st.success('All visit data deleted.')
+                st.success("All visit data deleted.")
                 st.rerun()
             except Exception as e:
-                st.error(f'Failed to delete data: {e}')
+                st.error(f"Failed to delete data: {e}")
     except Exception as e:
-        st.error(f'Admin error: {e}')
+        st.error(f"Admin error: {e}")
 
 # Persistent footer
 st.markdown(

@@ -5,10 +5,12 @@ from chat.client import chat_completion
 
 class DummyStream:
     def __iter__(self):
-        return iter([
-            {"choices": [{"delta": {"content": "Hello"}}]},
-            {"choices": [{"delta": {"content": ", world!"}}]},
-        ])
+        return iter(
+            [
+                {"choices": [{"delta": {"content": "Hello"}}]},
+                {"choices": [{"delta": {"content": ", world!"}}]},
+            ]
+        )
 
 
 def test_chat_completion_streams(monkeypatch):
@@ -18,8 +20,10 @@ def test_chat_completion_streams(monkeypatch):
     def fake_create(*args, **kwargs):
         if kwargs.get("stream"):
             return DummyStream()
+
         class R:
             choices = [types.SimpleNamespace(message={"content": "fallback"})]
+
         return R()
 
     monkeypatch.setattr(openai.ChatCompletion, "create", fake_create)
@@ -37,8 +41,10 @@ def test_chat_completion_retries(monkeypatch):
         calls["n"] += 1
         if calls["n"] == 1:
             raise RuntimeError("transient")
+
         class R:
             choices = [types.SimpleNamespace(message={"content": "ok"})]
+
         return R()
 
     monkeypatch.setattr(openai.ChatCompletion, "create", fake_create)
