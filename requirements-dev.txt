@@ -1,6 +1,6 @@
 ruff==0.6.9
 black==24.8.0
 pytest==8.2.0
-pip-tools==7.4.1
+pip-tools
 pre-commit==3.7.0
 mypy==1.10.0
