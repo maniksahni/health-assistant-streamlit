@@ -3,10 +3,44 @@ import logging
 import random
 import requests
 from typing import List, Dict, Any, Optional
+from duckduckgo_search import DDGS
 
 DEFAULT_TEMP = 0.2
 DEFAULT_MAX_TOKENS = 512
 
+
+def _needs_web_search(query: str) -> bool:
+    """Determine if a query likely requires real-time web information."""
+    query = query.lower()
+    # Keywords that suggest a need for current information
+    search_keywords = [
+        "price of", "cost of", "how much is",
+        "latest news", "what's new", "update on",
+        "release date", "when is",
+        "who is", "what is",
+        "stock price", "weather", "current events", "in india"
+    ]
+    # Check for questions about future or recent products
+    if "iphone 17" in query or "iphone 16" in query:
+        return True
+    return any(keyword in query for keyword in search_keywords)
+
+def _perform_web_search(query: str) -> str:
+    """Perform a web search and return a formatted string of results."""
+    try:
+        with DDGS() as ddgs:
+            results = list(ddgs.text(query, max_results=3))
+        if not results:
+            return "No web search results found."
+        
+        # Format results into a string for the LLM
+        formatted_results = "Web Search Results:\n"
+        for i, result in enumerate(results):
+            formatted_results += f"[{i+1}] {result['title']}\n{result['body']}\nURL: {result['href']}\n\n"
+        return formatted_results
+    except Exception as e:
+        logging.warning(f"Web search failed: {e}")
+        return "Web search failed."
 
 def _model_candidates(provider: str) -> list[str]:
     # Return valid model IDs for the target provider
@@ -56,6 +90,23 @@ def chat_completion(messages: List[Dict[str, Any]], *,
     attempt = 0
     last_err = None
     t0 = time.time()
+
+    # Check if the last user message requires a web search
+    search_context_message = None
+    if messages and messages[-1]["role"] == "user":
+        last_user_message = messages[-1]["content"]
+        if _needs_web_search(last_user_message):
+            logging.info(f"Performing web search for query: {last_user_message}")
+            search_results = _perform_web_search(last_user_message)
+            # Create a system message with the search results as context
+            search_context_message = {
+                "role": "system",
+                "content": f"Please use the following web search results to answer the user's question. If the results are not relevant, inform the user that you couldn't find current information.\n\n{search_results}"
+            }
+
+    # If search was performed, add the context to the start of the message list
+    if search_context_message:
+        messages.insert(0, search_context_message)
 
     # Allow explicit override via environment
     env_model = os.getenv('OPENAI_MODEL') or os.getenv('MODEL')

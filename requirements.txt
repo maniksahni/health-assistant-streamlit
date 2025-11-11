@@ -8,3 +8,4 @@ sentry-sdk==1.45.0
 SQLAlchemy==2.0.36
 requests==2.32.3
 python-dotenv==1.0.1
+duckduckgo-search==6.1.8
