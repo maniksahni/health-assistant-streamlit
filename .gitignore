@@ -1,0 +1,26 @@
+# Ignore local environment and secrets
+.env
+*.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.sqlite3
+venv/
+
+# Local databases
+analytics.db
+
+# Jupyter
+.ipynb_checkpoints/
+
+# VS Code
+.vscode/*.code-workspace
+
+# macOS
+.DS_Store
+
+# Streamlit local config
+.streamlit/
