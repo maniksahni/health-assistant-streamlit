@@ -580,6 +580,7 @@ if selected == "Parkinsons Prediction":
 # Chatbot Page
 if selected == 'Chat with HealthBot':
     st.title("Chat with HealthBot 🩺")
+    st.info("This assistant provides general information and is not a medical professional. For medical advice, please consult a qualified clinician.")
 
     # If API key is missing, allow user to enter it securely at runtime
     if not openai.api_key:
@@ -999,6 +1000,23 @@ if selected == 'Chat with HealthBot':
                 print(e)
                 msg = str(e)
                 low = msg.lower()
+                try:
+                    fallback_resp = openai.ChatCompletion.create(
+                        model=model_name,
+                        messages=temp_messages,
+                        max_tokens=128,
+                        temperature=0.2,
+                        request_timeout=20,
+                    )
+                    assistant_reply = fallback_resp.choices[0].message.get("content", "")
+                    if assistant_reply.strip():
+                        st.session_state.messages = temp_messages + [{"role": "assistant", "content": assistant_reply}]
+                        st.session_state["clear_user_input"] = True
+                        st.rerun()
+                    else:
+                        st.error("Unable to get a response right now. Please try again in a moment.")
+                except Exception:
+                    st.error("The chat service is temporarily unavailable. Please try again shortly.")
 
 # Admin Panel
 if st.session_state.get('admin_panel_open'):
