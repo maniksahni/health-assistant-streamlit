@@ -1,11 +1,8 @@
 import os
-import sqlite3
 import uuid
 from datetime import datetime, timezone
 import json
-import base64
 import logging
-import random as _rand
 from urllib.request import urlopen
 import streamlit as st
 import streamlit.components.v1 as components
