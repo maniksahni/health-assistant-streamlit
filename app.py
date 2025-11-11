@@ -323,7 +323,10 @@ with top_admin_col:
         st.rerun()
 
 if st.session_state.get('show_admin_login') and not st.session_state.get('admin_authed'):
-    admin_pw_env = os.environ.get('ADMIN_PASSWORD')
+    try:
+        admin_pw_env = st.secrets.get('ADMIN_PASSWORD', os.environ.get('ADMIN_PASSWORD'))
+    except Exception:
+        admin_pw_env = os.environ.get('ADMIN_PASSWORD')
     entered = st.text_input('Admin password', type='password', key='admin_pw_input')
     c1, c2 = st.columns(2)
     with c1:
@@ -1063,8 +1066,11 @@ if st.session_state.get('admin_panel_open'):
             st.session_state['admin_panel_open'] = False
             st.session_state['show_admin_login'] = False
             st.rerun()
-    # Require password from env
-    admin_pw_env = os.environ.get('ADMIN_PASSWORD')
+    # Require password from secrets/env
+    try:
+        admin_pw_env = st.secrets.get('ADMIN_PASSWORD', os.environ.get('ADMIN_PASSWORD'))
+    except Exception:
+        admin_pw_env = os.environ.get('ADMIN_PASSWORD')
     if not st.session_state.get('admin_authed'):
         st.stop()
 
