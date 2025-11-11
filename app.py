@@ -121,9 +121,14 @@ def capture_client_meta():
     except Exception:
         pass
 
-from ml.models import load_models
-
-diabetes_model, heart_disease_model, parkinsons_model = load_models(working_dir)
+try:
+    from ml.models import load_models
+    diabetes_model, heart_disease_model, parkinsons_model = load_models(working_dir)
+    _models_ok = True
+except Exception as _e:
+    logging.warning(f"ML models unavailable: {_e}")
+    diabetes_model = heart_disease_model = parkinsons_model = None
+    _models_ok = False
 
 # Sidebar for navigation
 with st.sidebar:
@@ -268,6 +273,10 @@ if st.session_state.get('show_admin_login') and not st.session_state.get('admin_
 if selected == 'Diabetes Prediction':
     st.title('Diabetes Prediction using ML')
 
+    if diabetes_model is None:
+        st.error('Model currently unavailable. Please refresh or try again later.')
+        st.stop()
+
     col1, col2, col3 = st.columns(3)
 
     with col1:
@@ -346,6 +355,10 @@ if selected == 'Diabetes Prediction':
 # Heart Disease Prediction Page
 if selected == 'Heart Disease Prediction':
     st.title('Heart Disease Prediction using ML')
+
+    if heart_disease_model is None:
+        st.error('Model currently unavailable. Please refresh or try again later.')
+        st.stop()
 
     col1, col2, col3 = st.columns(3)
 
@@ -447,6 +460,10 @@ if selected == 'Heart Disease Prediction':
 if selected == "Parkinsons Prediction":
     st.title("Parkinson's Disease Prediction using ML")
 
+    if parkinsons_model is None:
+        st.error('Model currently unavailable. Please refresh or try again later.')
+        st.stop()
+
     col1, col2, col3, col4, col5 = st.columns(5)
 
     with col1:
@@ -541,18 +558,18 @@ if selected == 'Chat with HealthBot':
     st.title("Chat with HealthBot 🩺")
     st.info("This assistant provides general information and is not a medical professional. For medical advice, please consult a qualified clinician.")
 
-    # Example prompts
-    with st.expander("Try an example"):
-        ex_cols = st.columns(3)
-        examples = [
-            "I have a headache and nausea for 2 days. What could it be?",
-            "I'm on metformin. What side effects should I watch for?",
-            "What are lifestyle changes to lower heart disease risk?",
-        ]
-        for i, text in enumerate(examples):
-            if ex_cols[i % 3].button(text[:28] + ("…" if len(text) > 28 else ""), key=f"ex_{i}"):
-                st.session_state["user_input"] = text
-                st.rerun()
+    # Example prompts placed near the message box
+    st.caption("Try an example")
+    ex_cols = st.columns(3)
+    examples = [
+        "I have a headache and nausea for 2 days. What could it be?",
+        "I'm on metformin. What side effects should I watch for?",
+        "What are lifestyle changes to lower heart disease risk?",
+    ]
+    for i, text in enumerate(examples):
+        if ex_cols[i % 3].button(text[:28] + ("…" if len(text) > 28 else ""), key=f"ex_{i}"):
+            st.session_state["user_input"] = text
+            st.rerun()
 
     # If API key is missing, allow user to enter it securely at runtime
     if not openai.api_key:
