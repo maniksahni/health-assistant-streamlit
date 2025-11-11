@@ -1,5 +1,4 @@
 import types
-import pytest
 
 from chat.client import chat_completion
 

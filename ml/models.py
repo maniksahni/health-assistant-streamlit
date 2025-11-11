@@ -1,7 +1,9 @@
 import os
 import pickle
 from typing import Tuple
+
 import streamlit as st
+
 
 @st.cache_resource
 def load_models(base_dir: str) -> Tuple[object, object, object]:

@@ -1,8 +1,9 @@
-import time
 import logging
 import random
+import time
+from typing import Any, Dict, List, Optional
+
 import requests
-from typing import List, Dict, Any, Optional
 from duckduckgo_search import DDGS
 
 DEFAULT_TEMP = 0.2

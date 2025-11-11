@@ -1,10 +1,11 @@
+import logging
 import os
 import sqlite3
-import logging
 from datetime import datetime, timezone
-from typing import Tuple, List, Dict
+from typing import Dict, List
 
 import streamlit as st
+
 
 @st.cache_resource
 def get_conn(base_path: str):

@@ -1,14 +1,18 @@
-import os
-from dotenv import load_dotenv
-import uuid
-from datetime import datetime, timezone
 import json
-import random
 import logging
+import os
+import random
+import uuid
 from urllib.request import urlopen
+
 import streamlit as st
 import streamlit.components.v1 as components
+from dotenv import load_dotenv
 from streamlit_option_menu import option_menu
+
+from app_data.analytics import get_conn as _get_visits_db
+from app_data.analytics import record_visit as _record_visit
+
 try:
     import PyPDF2 as _pypdf
 except Exception:
@@ -66,12 +70,9 @@ except Exception:
 # Get the working directory of the main.py
 working_dir = os.path.dirname(os.path.abspath(__file__))
 
-# -------------------- Simple Visits Tracking (SQLite) --------------------
 # Create a session-scoped visitor ID
 if "visitor_id" not in st.session_state:
     st.session_state["visitor_id"] = str(uuid.uuid4())
-
-from app_data.analytics import get_conn as _get_visits_db, record_visit as _record_visit
 
 visits_conn, _visits_kind = _get_visits_db(working_dir)
 
@@ -941,7 +942,7 @@ if selected == 'Chat with HealthBot':
                         from io import BytesIO
                         reader = _pypdf.PdfReader(BytesIO(data))
                         pages = []
-                        for i, p in enumerate(reader.pages[:5]):
+                        for p in reader.pages[:5]:
                             pages.append(p.extract_text() or '')
                         return "\n".join(pages)
                     except Exception:
@@ -968,8 +969,10 @@ if selected == 'Chat with HealthBot':
                                         text = str(data[:4096])
                                     snippet = text[:MAX_CHARS]
                                     # Hint code block language
-                                    if name.lower().endswith('.csv'): code_lang = 'csv'
-                                    elif name.lower().endswith('.json'): code_lang = 'json'
+                                    if name.lower().endswith('.csv'):
+                                        code_lang = 'csv'
+                                    elif name.lower().endswith('.json'):
+                                        code_lang = 'json'
                                 elif name.lower().endswith('.pdf'):
                                     text = _read_pdf_text(data) or '[PDF text extraction unavailable]'
                                     snippet = (text or '')[:MAX_CHARS]
@@ -1135,7 +1138,8 @@ if st.session_state.get('admin_panel_open'):
             data = [{'visitor_id': _mask(d[0]), 'page': d[1], 'first_ts': d[2], 'last_ts': d[3], 'count': d[4], 'user_agent': _short(d[5]), 'ip': _mask_ip(d[6])} for d in details]
             st.table(data)
             # CSV export
-            import io, csv
+            import csv
+            import io
             buf = io.StringIO()
             writer = csv.DictWriter(buf, fieldnames=['visitor_id','page','first_ts','last_ts','count','user_agent','ip'])
             writer.writeheader()

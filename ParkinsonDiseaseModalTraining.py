@@ -1,8 +1,9 @@
+import pickle
+
 import pandas as pd
+from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
 from sklearn.svm import SVC
-from sklearn.metrics import accuracy_score
-import pickle
 
 # Load the dataset
 data = pd.read_csv('parkinsons.csv')
