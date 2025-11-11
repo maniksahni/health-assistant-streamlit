@@ -1,0 +1,18 @@
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+
+[tool.ruff]
+line-length = 100
+select = ["E", "F", "I", "UP", "B"]
+ignore = ["E501"]
+exclude = [
+    ".git",
+    "venv",
+    ".venv",
+    "__pycache__",
+]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+python_files = ["test_*.py"]

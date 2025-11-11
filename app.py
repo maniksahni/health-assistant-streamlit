@@ -1,5 +1,4 @@
 import os
-import pickle
 import sqlite3
 import uuid
 from datetime import datetime, timezone
@@ -75,99 +74,20 @@ working_dir = os.path.dirname(os.path.abspath(__file__))
 if "visitor_id" not in st.session_state:
     st.session_state["visitor_id"] = str(uuid.uuid4())
 
-@st.cache_resource
-def _get_visits_db(db_path: str):
-    """Return (conn, kind) where kind is 'sqlite' or 'pg'."""
-    db_url = os.environ.get('DATABASE_URL')
-    if db_url and (db_url.startswith('postgres://') or db_url.startswith('postgresql://')):
-        try:
-            import psycopg2
-            conn = psycopg2.connect(db_url)
-            cur = conn.cursor()
-            cur.execute(
-                """
-                CREATE TABLE IF NOT EXISTS visits (
-                    visitor_id TEXT NOT NULL,
-                    page TEXT NOT NULL,
-                    first_ts TEXT NOT NULL,
-                    last_ts TEXT NOT NULL,
-                    count INTEGER NOT NULL,
-                    user_agent TEXT,
-                    ip TEXT,
-                    PRIMARY KEY (visitor_id, page)
-                )
-                """
-            )
-            conn.commit()
-            return conn, 'pg'
-        except Exception:
-            logging.warning('Falling back to SQLite analytics. Set DATABASE_URL to enable Postgres.')
-            # fall through to sqlite
-    conn = sqlite3.connect(db_path, check_same_thread=False)
-    cur = conn.cursor()
-    cur.execute(
-        """
-        CREATE TABLE IF NOT EXISTS visits (
-            visitor_id TEXT NOT NULL,
-            page TEXT NOT NULL,
-            first_ts TEXT NOT NULL,
-            last_ts TEXT NOT NULL,
-            count INTEGER NOT NULL,
-            user_agent TEXT,
-            ip TEXT,
-            PRIMARY KEY (visitor_id, page)
-        )
-        """
-    )
-    try:
-        cur.execute("PRAGMA table_info(visits)")
-        cols = {r[1] for r in cur.fetchall()}
-        if 'user_agent' not in cols:
-            cur.execute("ALTER TABLE visits ADD COLUMN user_agent TEXT")
-        if 'ip' not in cols:
-            cur.execute("ALTER TABLE visits ADD COLUMN ip TEXT")
-        conn.commit()
-    except Exception:
-        pass
-    conn.commit()
-    return conn, 'sqlite'
+from data.analytics import get_conn as _get_visits_db, record_visit as _record_visit
 
-visits_conn, _visits_kind = _get_visits_db(os.path.join(working_dir, "analytics.db"))
+visits_conn, _visits_kind = _get_visits_db(working_dir)
 
 def record_visit(page: str):
     try:
-        cur = visits_conn.cursor()
-        now = datetime.now(timezone.utc).isoformat()
-        vid = st.session_state["visitor_id"]
-        ua = st.session_state.get('ua')
-        ip = st.session_state.get('ip')
-        if _visits_kind == 'pg':
-            cur.execute(
-                """
-                INSERT INTO visits (visitor_id, page, first_ts, last_ts, count, user_agent, ip)
-                VALUES (%s,%s,%s,%s,%s,%s,%s)
-                ON CONFLICT (visitor_id, page)
-                DO UPDATE SET last_ts=EXCLUDED.last_ts, count=visits.count+1, user_agent=EXCLUDED.user_agent, ip=EXCLUDED.ip
-                """,
-                (vid, page, now, now, 1, ua, ip),
-            )
-        else:
-            cur.execute(
-                "SELECT count FROM visits WHERE visitor_id=? AND page=?",
-                (vid, page),
-            )
-            row = cur.fetchone()
-            if row is None:
-                cur.execute(
-                    "INSERT INTO visits (visitor_id, page, first_ts, last_ts, count, user_agent, ip) VALUES (?,?,?,?,?,?,?)",
-                    (vid, page, now, now, 1, ua, ip),
-                )
-            else:
-                cur.execute(
-                    "UPDATE visits SET last_ts=?, count=count+1, user_agent=?, ip=? WHERE visitor_id=? AND page=?",
-                    (now, ua, ip, vid, page),
-                )
-        visits_conn.commit()
+        _record_visit(
+            visits_conn,
+            _visits_kind,
+            st.session_state["visitor_id"],
+            page,
+            st.session_state.get('ua'),
+            st.session_state.get('ip'),
+        )
     except Exception as e:
         logging.debug(f"record_visit failed: {e}")
 
@@ -191,18 +111,9 @@ def capture_client_meta():
     except Exception:
         pass
 
-# Cached model loader to avoid reloads on rerun
-@st.cache_resource
-def _load_models(base_dir: str):
-    with open(f"{base_dir}/saved_models/diabetes_model.sav", "rb") as f1:
-        dm = pickle.load(f1)
-    with open(f"{base_dir}/saved_models/heart_disease_model.sav", "rb") as f2:
-        hm = pickle.load(f2)
-    with open(f"{base_dir}/saved_models/parkinsons_model.sav", "rb") as f3:
-        pm = pickle.load(f3)
-    return dm, hm, pm
+from ml.models import load_models
 
-diabetes_model, heart_disease_model, parkinsons_model = _load_models(working_dir)
+diabetes_model, heart_disease_model, parkinsons_model = load_models(working_dir)
 
 # Sidebar for navigation
 with st.sidebar:
@@ -802,6 +713,9 @@ if selected == 'Chat with HealthBot':
             cam = st.session_state.get("captured_photo")
             if cam is not None:
                 files = files + [cam]
+            # Enforce simple limits
+            MAX_FILES = 4
+            files = files[:MAX_FILES]
             if files:
                 for i, f in enumerate(files[:6]):
                     try:
@@ -959,9 +873,18 @@ if selected == 'Chat with HealthBot':
             temp_messages = capped_history(st.session_state.messages + [temp_user_msg] + attach_msgs)
 
             try:
-                # Use helper with retries/backoff
+                # Use helper with retries/backoff + correlation id
                 from chat.client import chat_completion
-                assistant_reply = chat_completion(temp_messages, temperature=0.2, max_tokens=512, request_timeout=30, retries=3)
+                req_id = str(uuid.uuid4())
+                with st.spinner("Thinking..."):
+                    assistant_reply = chat_completion(
+                        temp_messages,
+                        temperature=0.2,
+                        max_tokens=512,
+                        request_timeout=30,
+                        retries=3,
+                        request_id=req_id,
+                    )
 
                 # Limit response to 250 words
                 assistant_reply_words = assistant_reply.split()

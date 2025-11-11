@@ -19,7 +19,8 @@ def chat_completion(messages: List[Dict[str, Any]], *,
                     max_tokens: int = DEFAULT_MAX_TOKENS,
                     request_timeout: int = 30,
                     retries: int = 3,
-                    backoff_base: float = 0.5) -> str:
+                    backoff_base: float = 0.5,
+                    request_id: str | None = None) -> str:
     """Call ChatCompletion with retries and jittered exponential backoff.
 
     Returns assistant text content or empty string on failure.
@@ -63,7 +64,8 @@ def chat_completion(messages: List[Dict[str, Any]], *,
                 "model": model_name,
                 "latency_s": round(latency, 3),
                 "attempt": attempt,
-                "tokens": "n/a"
+                "tokens": "n/a",
+                "request_id": request_id
             })
             return text
         except Exception as e:
@@ -78,6 +80,7 @@ def chat_completion(messages: List[Dict[str, Any]], *,
     logging.error({
         "event": "chat.error",
         "error": str(last_err) if last_err else "unknown",
-        "retries": retries
+        "retries": retries,
+        "request_id": request_id
     })
     return ""
