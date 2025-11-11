@@ -610,20 +610,9 @@ if selected == 'Chat with HealthBot':
         pass
 
     # Model settings (persist in session)
-    if "chat_model" not in st.session_state:
-        st.session_state.chat_model = "openrouter/auto" if getattr(openai, "api_base", "").startswith("https://openrouter.ai") else "gpt-3.5-turbo"
-    if "chat_temp" not in st.session_state:
-        st.session_state.chat_temp = 0.2
-    with st.expander("Model settings", expanded=False):
-        st.session_state.chat_model = st.selectbox(
-            "Model",
-            options=[
-                "openrouter/auto",
-                "gpt-3.5-turbo",
-            ],
-            index=0 if (getattr(openai, "api_base", "").startswith("https://openrouter.ai")) else 1,
-        )
-        st.session_state.chat_temp = st.slider("Temperature", 0.0, 1.0, float(st.session_state.chat_temp), 0.05)
+    base = getattr(openai, "api_base", "")
+    st.session_state.chat_model = "openrouter/auto" if base.startswith("https://openrouter.ai") else "gpt-3.5-turbo"
+    st.session_state.chat_temp = 0.2
 
     # Initialize messages in session state
     if "messages" not in st.session_state:
@@ -700,6 +689,7 @@ if selected == 'Chat with HealthBot':
               function decorate(){
                 const input = D.querySelector('input[placeholder="Type your message here..."]');
                 if(!input) return false;
+                
                 let form = input.closest('form');
                 if(!form) return false;
                 const host = form.parentElement; if(!host) return false;
