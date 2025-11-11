@@ -75,31 +75,31 @@ def chat_completion(messages: List[Dict[str, Any]], *,
                     )
                     text = resp.choices[0].message.content or ""
             else:
-                # Legacy fallback (openai==0.28) interface
-                stream = openai.ChatCompletion.create(
+                # Fallback to OpenAI 1.x module-level API (no explicit client)
+                stream = openai.chat.completions.create(
                     model=model_name,
                     messages=messages,
                     temperature=float(temperature),
                     max_tokens=int(max_tokens),
                     stream=True,
-                    request_timeout=int(request_timeout),
+                    timeout=int(request_timeout),
                 )
                 for chunk in stream:
                     try:
-                        delta = chunk["choices"][0]["delta"].get("content", "") if "choices" in chunk else ""
+                        delta = chunk.choices[0].delta.content or ""
                     except Exception:
                         delta = ""
                     if delta:
                         text += delta
                 if not text.strip():
-                    resp = openai.ChatCompletion.create(
+                    resp = openai.chat.completions.create(
                         model=model_name,
                         messages=messages,
                         temperature=float(temperature),
                         max_tokens=int(max_tokens),
-                        request_timeout=int(request_timeout),
+                        timeout=int(request_timeout),
                     )
-                    text = resp.choices[0].message.get("content", "")
+                    text = resp.choices[0].message.content or ""
             latency = time.time() - t0
             logging.info({
                 "event": "chat.complete",
