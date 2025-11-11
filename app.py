@@ -559,7 +559,7 @@ if selected == 'Chat with HealthBot':
     st.info("This assistant provides general information and is not a medical professional. For medical advice, please consult a qualified clinician.")
 
     # Example prompts placed near the message box
-    st.caption("Try an example")
+    st.markdown("**Try an example**")
     ex_cols = st.columns(3)
     examples = [
         "I have a headache and nausea for 2 days. What could it be?",
@@ -569,6 +569,7 @@ if selected == 'Chat with HealthBot':
     for i, text in enumerate(examples):
         if ex_cols[i % 3].button(text[:28] + ("…" if len(text) > 28 else ""), key=f"ex_{i}"):
             st.session_state["user_input"] = text
+            st.session_state['auto_submit'] = True
             st.rerun()
 
     # If API key is missing, allow user to enter it securely at runtime
