@@ -8,9 +8,9 @@ import streamlit as st
 def load_single_model(base_dir: str, model_name: str) -> Optional[object]:
     """Load a single model by name."""
     model_files = {
-        "diabetes": "diabetes_model.sav",
-        "heart": "heart_disease_model.sav",
-        "parkinsons": "parkinsons_model.sav",
+        "diabetes": "diabetes_model.pkl",
+        "heart": "heart_disease_model.pkl",
+        "parkinsons": "parkinsons_model.pkl",
     }
     file_name = model_files.get(model_name)
     if not file_name:

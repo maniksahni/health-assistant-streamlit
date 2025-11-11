@@ -30,5 +30,5 @@ accuracy = accuracy_score(y_test, y_pred)
 print(f"Parkinson’s Model Accuracy: {accuracy * 100:.2f}%")
 
 # Save the trained model
-with open("parkinsons_model.sav", "wb") as f:
+with open("saved_models/parkinsons_model.pkl", "wb") as f:
     pickle.dump(model, f)
