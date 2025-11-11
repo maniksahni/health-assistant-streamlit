@@ -86,7 +86,16 @@ def chat_completion(
     """
     import os
 
-    api_key = api_key or os.getenv("OPENAI_API_KEY")
+    import streamlit as st
+
+    # Prioritize st.secrets on Streamlit Cloud
+    try:
+        api_key = api_key or st.secrets.get("OPENAI_API_KEY")
+    except Exception:
+        pass
+    # Fallback to environment variable for local development
+    if not api_key:
+        api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
         return "Error: No API key configured"
 
