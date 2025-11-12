@@ -29,9 +29,13 @@ def _needs_web_search(query: str) -> bool:
         "weather",
         "current events",
         "in india",
+        "rate of",
+        "gold rate",
+        "gold price",
+        "weather in",
     ]
     # Check for questions about future or recent products
-    if "iphone 17" in query or "iphone 16" in query:
+    if "iphone 17" in query or "iphone 16" in query or "iphone 17 pro" in query or "17 pro" in query:
         return True
     return any(keyword in query for keyword in search_keywords)
 
@@ -61,7 +65,7 @@ def _model_candidates(provider: str) -> list[str]:
     provider = (provider or "").lower()
     if provider == "openrouter":
         return [
-            "mistralai/mistral-nemo",
+            "mistralai/mistral-nemo:free",
         ]
     # Default to OpenAI-compatible IDs
     return [
@@ -88,12 +92,24 @@ def chat_completion(
 
     import streamlit as st
 
-    # Prioritize st.secrets on Streamlit Cloud
+    used_or = False
     try:
-        api_key = api_key or st.secrets.get("OPENAI_API_KEY")
+        if not api_key:
+            k = st.secrets.get("OPENROUTER_API_KEY")
+            if k:
+                api_key = k
+                used_or = True
+        if not api_key:
+            k = st.secrets.get("OPENAI_API_KEY")
+            if k:
+                api_key = k
     except Exception:
         pass
-    # Fallback to environment variable for local development
+    if not api_key:
+        k = os.getenv("OPENROUTER_API_KEY")
+        if k:
+            api_key = k
+            used_or = True
     if not api_key:
         api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
@@ -102,9 +118,7 @@ def chat_completion(
     # Determine provider from environment or API key prefix
     env_provider = (os.getenv("OPENAI_PROVIDER") or "").strip().lower()
     provider = "openai"
-    if env_provider == "openrouter":
-        provider = "openrouter"
-    elif str(api_key).startswith("sk-or-"):
+    if env_provider == "openrouter" or used_or or str(api_key).startswith("sk-or-"):
         provider = "openrouter"
 
     # Determine base URL
@@ -154,7 +168,7 @@ def chat_completion(
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
-        "HTTP-Referer": "https://health-assistant.streamlit.app",
+        "HTTP-Referer": "https://health-assistant-app-58hi.onrender.com",
         "X-Title": "Health Assistant",
     }
 
