@@ -1,17 +1,19 @@
-# Use the official Python image
 FROM python:3.11-slim
 
-# Set the working directory
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
+
 WORKDIR /app
 
-# Copy all project files into the directory
+COPY requirements.txt ./
+RUN pip install -r requirements.txt
+
 COPY . .
 
-# Install dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+RUN groupadd -r app && useradd -r -g app app && chown -R app:app /app
+USER app
 
-# Expose the port that Streamlit runs on
 EXPOSE 8501
 
-# The command to run the app (bind to platform port if provided)
-CMD ["sh", "-c", "streamlit run app.py --server.port ${PORT:-8501} --server.address 0.0.0.0"]
+CMD ["sh", "-c", "streamlit run app.py --server.port ${PORT:-8501} --server.address 0.0.0.0 --server.headless true"]

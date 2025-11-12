@@ -25,14 +25,24 @@ An AI-assisted health helper with three ML predictors (diabetes, heart disease, 
 - `OPENAI_API_KEY` – required for chat
 - `ADMIN_PASSWORD` – unlocks admin panel
 - `DATABASE_URL` – optional Postgres for persistent analytics
+- Recommended for live app: set `OPENAI_PROVIDER=openrouter` and `OPENROUTER_API_KEY` to use OpenRouter by default.
 
 ## Development
 
 ```bash
+# Setup
+python3.11 -m venv venv && source venv/bin/activate
 pip install -r requirements.txt -r requirements-dev.txt
-ruff check .
-black .
-pytest
+
+# Enable pre-commit hooks (ruff/black/mypy)
+pre-commit install
+pre-commit run --all-files
+
+# Optional: lock requirements from requirements.in using pip-tools
+pip-compile requirements.in -o requirements.txt
+
+# Tests
+pytest -q
 ```
 
 Code style is configured in `pyproject.toml`.

@@ -776,17 +776,33 @@ if selected == "Chat with HealthBot":
         provider = "openrouter"
 
     if provider == "openrouter":
-        st.session_state.chat_model = "openrouter/auto"
         st.session_state.available_models = [
-            "openai/gpt-4o",
-            "anthropic/claude-3.5-sonnet",
-            "google/gemini-1.5-pro",
-            "openai/gpt-4-turbo",
+            "mistralai/mistral-nemo:free",
+            "mistralai/mistral-nemo",
         ]
+        st.session_state.chat_model = (
+            st.session_state.get("ui_model") or "mistralai/mistral-nemo:free"
+        )
     else:
-        st.session_state.chat_model = "gpt-3.5-turbo"
         st.session_state.available_models = ["gpt-3.5-turbo", "gpt-4o-mini"]
+        st.session_state.chat_model = "gpt-3.5-turbo"
     st.session_state.chat_temp = 0.2
+
+    # Visible model selector when using OpenRouter
+    if provider == "openrouter":
+        try:
+            default_idx = (
+                st.session_state.available_models.index(st.session_state.chat_model)
+                if st.session_state.chat_model in st.session_state.available_models
+                else 0
+            )
+        except Exception:
+            default_idx = 0
+        st.session_state["ui_model"] = st.selectbox(
+            "Model",
+            options=st.session_state.available_models,
+            index=default_idx,
+        )
 
     # Initialize messages in session state
     if "messages" not in st.session_state:
@@ -1169,7 +1185,7 @@ if selected == "Chat with HealthBot":
 
             try:
                 # Use helper with retries/backoff + correlation id
-                from chat.client import chat_completion
+                from chat.client import chat_completion, chat_completion_stream
 
                 req_id = str(uuid.uuid4())
                 try:
@@ -1181,16 +1197,53 @@ if selected == "Chat with HealthBot":
                 except Exception:
                     pass
                 with st.spinner("HealthBot is thinking..."):
-                    assistant_reply = chat_completion(
-                        temp_messages,
-                        temperature=0.2,
-                        max_tokens=512,
-                        request_timeout=15,
-                        retries=0,
-                        backoff_base=0.5,
-                        request_id=req_id,
-                        api_key=api_key,
-                    )
+                    assistant_reply = ""
+                    # Use streaming for OpenRouter for a snappier UX; fallback otherwise
+                    if provider == "openrouter":
+                        ph = st.empty()
+                        try:
+                            pm = [st.session_state.get("ui_model") or "mistralai/mistral-nemo:free"]
+                            chunks = []
+                            for ch in chat_completion_stream(
+                                temp_messages,
+                                temperature=0.2,
+                                max_tokens=512,
+                                request_timeout=20,
+                                retries=0,
+                                backoff_base=0.5,
+                                request_id=req_id,
+                                api_key=api_key,
+                                preferred_models=pm,
+                            ):
+                                chunks.append(ch)
+                                ph.markdown("**HealthBot:** " + "".join(chunks))
+                            assistant_reply = "".join(chunks)
+                        except Exception:
+                            # Fallback to one-shot
+                            assistant_reply = chat_completion(
+                                temp_messages,
+                                temperature=0.2,
+                                max_tokens=512,
+                                request_timeout=15,
+                                retries=0,
+                                backoff_base=0.5,
+                                request_id=req_id,
+                                api_key=api_key,
+                                preferred_models=[st.session_state.get("ui_model")]
+                                if st.session_state.get("ui_model")
+                                else None,
+                            )
+                    else:
+                        assistant_reply = chat_completion(
+                            temp_messages,
+                            temperature=0.2,
+                            max_tokens=512,
+                            request_timeout=15,
+                            retries=0,
+                            backoff_base=0.5,
+                            request_id=req_id,
+                            api_key=api_key,
+                        )
 
                 # Limit response to 250 words
                 assistant_reply_words = assistant_reply.split()

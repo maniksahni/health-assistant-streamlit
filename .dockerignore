@@ -1,0 +1,23 @@
+.git
+.venv
+venv
+__pycache__
+.pytest_cache
+.ruff_cache
+.streamlit
+*.log
+cloudflared.log
+
+# Tests and local tooling
+.tests
+coverage*
+
+# Large or local-only data
+# Keep models so the app works in the container
+# saved_models/
+data/
+!data/raw/.gitkeep
+
+# OS/editor
+.DS_Store
+.vscode/

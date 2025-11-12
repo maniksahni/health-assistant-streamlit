@@ -1,4 +1,5 @@
 import logging
+import json
 import random
 import time
 from typing import Any, Dict, List, Optional
@@ -177,6 +178,7 @@ def chat_completion(
     backoff_base: float = 0.5,
     request_id: Optional[str] = None,
     api_key: Optional[str] = None,
+    preferred_models: Optional[List[str]] = None,
 ) -> str:
     """Call the appropriate chat API directly with retries.
 
@@ -260,6 +262,14 @@ def chat_completion(
             models = [m]
     if not models:
         models = candidates
+    # Allow explicit override from caller (e.g., UI selection)
+    if preferred_models and isinstance(preferred_models, list):
+        try:
+            _pm = [str(m).strip() for m in preferred_models if str(m).strip()]
+            if _pm:
+                models = _pm
+        except Exception:
+            pass
 
     headers = {
         "Authorization": f"Bearer {api_key}",
@@ -339,3 +349,157 @@ def chat_completion(
 
     logging.error({"event": "chat.failed", "error": str(last_err)})
     return "I'm experiencing technical difficulties. Please try again in a moment."
+
+
+def chat_completion_stream(
+    messages: List[Dict[str, Any]],
+    *,
+    temperature: float = DEFAULT_TEMP,
+    max_tokens: int = DEFAULT_MAX_TOKENS,
+    request_timeout: int = 60,
+    retries: int = 0,
+    backoff_base: float = 0.5,
+    request_id: Optional[str] = None,
+    api_key: Optional[str] = None,
+    preferred_models: Optional[List[str]] = None,
+):
+    """Yield assistant text chunks using OpenAI/OpenRouter streaming. Falls back to non-streaming."""
+    import os
+    import requests
+    import time
+
+    # Resolve API key similar to non-streaming path
+    used_or = False
+    try:
+        if not api_key:
+            k = None
+            try:
+                import streamlit as st  # type: ignore
+
+                k = st.secrets.get("OPENROUTER_API_KEY")
+            except Exception:
+                k = None
+            if k:
+                api_key = k
+                used_or = True
+        if not api_key:
+            try:
+                import streamlit as st  # type: ignore
+
+                k = st.secrets.get("OPENAI_API_KEY")
+            except Exception:
+                k = None
+            if k:
+                api_key = k
+    except Exception:
+        pass
+    if not api_key:
+        k = os.getenv("OPENROUTER_API_KEY")
+        if k:
+            api_key = k
+            used_or = True
+    if not api_key:
+        api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        # No key: surface a single error chunk and stop
+        yield "Error: No API key configured"
+        return
+
+    env_provider = (os.getenv("OPENAI_PROVIDER") or "").strip().lower()
+    provider = "openai"
+    if env_provider == "openrouter" or used_or or str(api_key).startswith("sk-or-"):
+        provider = "openrouter"
+
+    base_url = "https://api.openai.com/v1"
+    if provider == "openrouter":
+        base_url = "https://openrouter.ai/api/v1"
+
+    candidates = _model_candidates(provider)
+    model = None
+    if preferred_models and isinstance(preferred_models, list) and preferred_models:
+        model = str(preferred_models[0])
+    elif os.getenv("OPENAI_MODEL") or os.getenv("MODEL"):
+        model = (os.getenv("OPENAI_MODEL") or os.getenv("MODEL")).strip()
+    else:
+        model = candidates[0] if candidates else "gpt-4o-mini"
+
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://health-assistant-app-58hi.onrender.com",
+        "X-Title": "Health Assistant",
+    }
+
+    payload = {
+        "model": model,
+        "messages": messages,
+        "temperature": float(temperature),
+        "max_tokens": int(max_tokens),
+        "stream": True,
+    }
+
+    try:
+        with requests.post(
+            f"{base_url}/chat/completions",
+            headers=headers,
+            json=payload,
+            timeout=request_timeout,
+            stream=True,
+        ) as r:
+            if r.status_code != 200:
+                # Fall back to non-streaming
+                yield chat_completion(
+                    messages,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    request_timeout=request_timeout,
+                    retries=retries,
+                    backoff_base=backoff_base,
+                    request_id=request_id,
+                    api_key=api_key,
+                    preferred_models=[model],
+                )
+                return
+            for raw in r.iter_lines(decode_unicode=True):
+                if not raw:
+                    continue
+                line = raw.strip()
+                if not line.startswith("data:"):
+                    continue
+                data = line[5:].strip()
+                if data == "[DONE]":
+                    break
+                try:
+                    evt = json.loads(data)
+                except Exception:
+                    continue
+                try:
+                    delta = (
+                        evt.get("choices", [{}])[0]
+                        .get("delta", {})
+                        .get("content")
+                    )
+                    if not delta:
+                        # Some providers embed full message content
+                        delta = (
+                            evt.get("choices", [{}])[0]
+                            .get("message", {})
+                            .get("content")
+                        )
+                    if delta:
+                        yield str(delta)
+                except Exception:
+                    continue
+    except Exception:
+        # Any failure: fall back to one-shot
+        yield chat_completion(
+            messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            request_timeout=request_timeout,
+            retries=retries,
+            backoff_base=backoff_base,
+            request_id=request_id,
+            api_key=api_key,
+            preferred_models=[model],
+        )
