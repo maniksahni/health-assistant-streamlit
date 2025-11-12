@@ -2,6 +2,7 @@ import logging
 import random
 import time
 from typing import Any, Dict, List, Optional
+import re
 
 import requests
 from duckduckgo_search import DDGS
@@ -27,6 +28,8 @@ def _needs_web_search(query: str) -> bool:
         "what is",
         "stock price",
         "weather",
+        "forecast",
+        "temperature",
         "current events",
         "in india",
         "rate of",
@@ -60,12 +63,100 @@ def _perform_web_search(query: str) -> str:
         return "Web search failed."
 
 
+def _extract_city(query: str) -> Optional[str]:
+    """Extract a city name from queries like 'weather in delhi' or 'delhi weather'."""
+    q = query.lower()
+    m = re.search(r"weather in\s+([a-zA-Z\s]+)", q)
+    if m:
+        return m.group(1).strip().strip("?.,!")
+    m = re.search(r"in\s+([a-zA-Z\s]+)\s+weather", q)
+    if m:
+        return m.group(1).strip().strip("?.,!")
+    # Fallback: last word if starts with weather
+    if q.startswith("weather "):
+        return q.replace("weather", "", 1).strip().strip("?.,!")
+    return None
+
+
+def _get_weather_context(query: str) -> Optional[str]:
+    """Fetch current weather using Open-Meteo for the extracted city."""
+    city = _extract_city(query)
+    if not city:
+        return None
+    try:
+        geo = requests.get(
+            "https://geocoding-api.open-meteo.com/v1/search",
+            params={"name": city, "count": 1, "language": "en", "format": "json"},
+            timeout=10,
+        ).json()
+        if not geo or not geo.get("results"):
+            return None
+        res = geo["results"][0]
+        lat, lon = res.get("latitude"), res.get("longitude")
+        loc_name = res.get("name")
+        cc = res.get("country")
+        wx = requests.get(
+            "https://api.open-meteo.com/v1/forecast",
+            params={
+                "latitude": lat,
+                "longitude": lon,
+                "current": "temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m",
+                "timezone": "auto",
+            },
+            timeout=10,
+        ).json()
+        # Handle both current and current_weather styles
+        cur = wx.get("current") or wx.get("current_weather") or {}
+        t = cur.get("temperature_2m") or cur.get("temperature")
+        rh = cur.get("relative_humidity_2m")
+        wcode = cur.get("weather_code")
+        wind = cur.get("wind_speed_10m") or cur.get("windspeed")
+        parts = [f"Location: {loc_name}, {cc}"]
+        if t is not None:
+            parts.append(f"Temperature: {t}°C")
+        if rh is not None:
+            parts.append(f"Humidity: {rh}%")
+        if wind is not None:
+            parts.append(f"Wind: {wind} km/h")
+        if wcode is not None:
+            parts.append(f"Weather code: {wcode}")
+        return "Current Weather (Open-Meteo):\n" + " | ".join(parts)
+    except Exception as e:
+        logging.warning(f"Weather fetch failed: {e}")
+        return None
+
+
+def _get_gold_context(query: str) -> Optional[str]:
+    """Fetch spot gold price (USD) using metals.live; best-effort, fallback to None."""
+    if not any(k in query.lower() for k in ["gold rate", "rate of gold", "gold price", "price of gold"]):
+        return None
+    try:
+        # Primary endpoint
+        r = requests.get("https://api.metals.live/v1/spot/gold", timeout=10)
+        data = r.json()
+        # Expected: list of dicts or list of lists with price
+        price = None
+        if isinstance(data, list):
+            # e.g., [{"gold": 2371.23, "timestamp": ...}, ...] or [["gold", 2371.23], ...]
+            last = data[-1]
+            if isinstance(last, dict):
+                price = last.get("gold") or last.get("price")
+            elif isinstance(last, list) and len(last) >= 2:
+                price = last[1]
+        if price:
+            return f"Spot Gold (XAU) price ~ ${price} per troy ounce (source: metals.live)"
+    except Exception as e:
+        logging.warning(f"Gold price fetch failed: {e}")
+    return None
+
+
 def _model_candidates(provider: str) -> list[str]:
     # Return valid model IDs for the target provider
     provider = (provider or "").lower()
     if provider == "openrouter":
         return [
             "mistralai/mistral-nemo:free",
+            "mistralai/mistral-nemo",
         ]
     # Default to OpenAI-compatible IDs
     return [
@@ -131,22 +222,24 @@ def chat_completion(
     last_err = None
     t0 = time.time()
 
-    # Check if the last user message requires a web search
-    search_context_message = None
+    # Add specialized factual context (weather/gold) or fall back to web search
     if messages and messages[-1]["role"] == "user":
         last_user_message = messages[-1]["content"]
-        if _needs_web_search(last_user_message):
+        special_ctx = _get_weather_context(last_user_message) or _get_gold_context(last_user_message)
+        if special_ctx:
+            messages.insert(0, {
+                "role": "system",
+                "content": f"Use the following factual data to answer concisely:\n\n{special_ctx}",
+            })
+        elif _needs_web_search(last_user_message):
             logging.info(f"Performing web search for query: {last_user_message}")
             search_results = _perform_web_search(last_user_message)
-            # Create a system message with the search results as context
-            search_context_message = {
+            messages.insert(0, {
                 "role": "system",
                 "content": f"Please use the following web search results to answer the user's question. If the results are not relevant, inform the user that you couldn't find current information.\n\n{search_results}",
-            }
+            })
 
-    # If search was performed, add the context to the start of the message list
-    if search_context_message:
-        messages.insert(0, search_context_message)
+    # Context already inserted above if found
 
     # Allow explicit override via environment
     env_model = os.getenv("OPENAI_MODEL") or os.getenv("MODEL")
