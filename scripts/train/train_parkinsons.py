@@ -1,3 +1,4 @@
+import os
 import pickle
 
 import pandas as pd
@@ -6,7 +7,9 @@ from sklearn.model_selection import train_test_split
 from sklearn.svm import SVC
 
 # Load the dataset
-data = pd.read_csv("parkinsons.csv")
+here = os.path.dirname(os.path.abspath(__file__))
+root = os.path.abspath(os.path.join(here, "..", ".."))
+data = pd.read_csv(os.path.join(root, "data", "raw", "parkinsons.csv"))
 
 # Split the data into features and labels
 # 'status' column is the target (0 = healthy, 1 = Parkinson's)
@@ -30,5 +33,5 @@ accuracy = accuracy_score(y_test, y_pred)
 print(f"Parkinson’s Model Accuracy: {accuracy * 100:.2f}%")
 
 # Save the trained model
-with open("saved_models/parkinsons_model.pkl", "wb") as f:
+with open(os.path.join(root, "saved_models", "parkinsons_model.pkl"), "wb") as f:
     pickle.dump(model, f)

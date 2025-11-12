@@ -43,6 +43,8 @@ An AI-assisted health helper with three ML predictors (diabetes, heart disease, 
 - `ml/models.py` – cached loading of pickled models
 - `chat/client.py` – chat wrapper with retry/backoff, model selection, logging
 - `app_data/analytics.py` – visits tracking (SQLite by default, Postgres when `DATABASE_URL` is set)
+- `scripts/train/` – training scripts for diabetes, heart disease, and Parkinson's models
+- `data/raw/` – input CSV datasets used by the training scripts
 - `.github/workflows/ci.yml` – CI with ruff, black, pytest, smoke run
 
 ## Secrets

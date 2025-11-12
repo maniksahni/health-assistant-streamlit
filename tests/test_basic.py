@@ -29,7 +29,7 @@ def test_requirements_versions():
     assert os.path.exists("requirements.txt")
     txt = open("requirements.txt").read()
     assert "numpy==1.26.4" in txt
-    assert "scikit-learn==1.3.2" in txt
+    assert "scikit-learn==1.5.2" in txt
 
 
 def test_model_files_exist():

@@ -1,0 +1,29 @@
+{
+  "files.exclude": {
+    "**/.DS_Store": true,
+    "**/__pycache__": true,
+    "**/.pytest_cache": true,
+    "**/.ruff_cache": true,
+    "venv": true,
+    ".venv": true,
+    "analytics.db": true,
+    "cloudflared.log": true,
+    "saved_models": true,
+    "data": true,
+    "data/raw": true
+  },
+  "search.exclude": {
+    "**/.DS_Store": true,
+    "**/__pycache__": true,
+    "**/.pytest_cache": true,
+    "**/.ruff_cache": true,
+    "venv": true,
+    ".venv": true,
+    "analytics.db": true,
+    "cloudflared.log": true,
+    "saved_models": true,
+    "data": true,
+    "data/raw": true
+  },
+  "python.testing.pytestEnabled": true
+}

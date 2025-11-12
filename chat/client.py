@@ -40,6 +40,9 @@ def _needs_web_search(query: str) -> bool:
     # Check for questions about future or recent products
     if "iphone 17" in query or "iphone 16" in query or "iphone 17 pro" in query or "17 pro" in query:
         return True
+    # Treat iPhone price/cost queries as real-time
+    if "iphone" in query and any(k in query for k in ["price", "cost", "pro", "pro max", "release", "launch", "in india"]):
+        return True
     return any(keyword in query for keyword in search_keywords)
 
 

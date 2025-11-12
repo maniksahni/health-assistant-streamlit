@@ -9,9 +9,18 @@ __pycache__/
 *.pyd
 *.sqlite3
 venv/
+.venv/
 
 # Local databases
 analytics.db
+
+# Data and models
+saved_models/
+data/raw/
+
+# Logs
+cloudflared.log
+*.log
 
 # Jupyter
 .ipynb_checkpoints/
