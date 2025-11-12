@@ -1,9 +1,10 @@
-import logging
 import json
+import logging
+import os
 import random
+import re
 import time
 from typing import Any, Dict, List, Optional
-import re
 
 import requests
 from duckduckgo_search import DDGS
@@ -39,10 +40,17 @@ def _needs_web_search(query: str) -> bool:
         "weather in",
     ]
     # Check for questions about future or recent products
-    if "iphone 17" in query or "iphone 16" in query or "iphone 17 pro" in query or "17 pro" in query:
+    if (
+        "iphone 17" in query
+        or "iphone 16" in query
+        or "iphone 17 pro" in query
+        or "17 pro" in query
+    ):
         return True
     # Treat iPhone price/cost queries as real-time
-    if "iphone" in query and any(k in query for k in ["price", "cost", "pro", "pro max", "release", "launch", "in india"]):
+    if "iphone" in query and any(
+        k in query for k in ["price", "cost", "pro", "pro max", "release", "launch", "in india"]
+    ):
         return True
     return any(keyword in query for keyword in search_keywords)
 
@@ -132,7 +140,9 @@ def _get_weather_context(query: str) -> Optional[str]:
 
 def _get_gold_context(query: str) -> Optional[str]:
     """Fetch spot gold price (USD) using metals.live; best-effort, fallback to None."""
-    if not any(k in query.lower() for k in ["gold rate", "rate of gold", "gold price", "price of gold"]):
+    if not any(
+        k in query.lower() for k in ["gold rate", "rate of gold", "gold price", "price of gold"]
+    ):
         return None
     try:
         # Primary endpoint
@@ -230,19 +240,27 @@ def chat_completion(
     # Add specialized factual context (weather/gold) or fall back to web search
     if messages and messages[-1]["role"] == "user":
         last_user_message = messages[-1]["content"]
-        special_ctx = _get_weather_context(last_user_message) or _get_gold_context(last_user_message)
+        special_ctx = _get_weather_context(last_user_message) or _get_gold_context(
+            last_user_message
+        )
         if special_ctx:
-            messages.insert(0, {
-                "role": "system",
-                "content": f"Use the following factual data to answer concisely:\n\n{special_ctx}",
-            })
+            messages.insert(
+                0,
+                {
+                    "role": "system",
+                    "content": f"Use the following factual data to answer concisely:\n\n{special_ctx}",
+                },
+            )
         elif _needs_web_search(last_user_message):
             logging.info(f"Performing web search for query: {last_user_message}")
             search_results = _perform_web_search(last_user_message)
-            messages.insert(0, {
-                "role": "system",
-                "content": f"Please use the following web search results to answer the user's question. If the results are not relevant, inform the user that you couldn't find current information.\n\n{search_results}",
-            })
+            messages.insert(
+                0,
+                {
+                    "role": "system",
+                    "content": f"Please use the following web search results to answer the user's question. If the results are not relevant, inform the user that you couldn't find current information.\n\n{search_results}",
+                },
+            )
 
     # Context already inserted above if found
 
@@ -364,9 +382,6 @@ def chat_completion_stream(
     preferred_models: Optional[List[str]] = None,
 ):
     """Yield assistant text chunks using OpenAI/OpenRouter streaming. Falls back to non-streaming."""
-    import os
-    import requests
-    import time
 
     # Resolve API key similar to non-streaming path
     used_or = False
@@ -474,18 +489,10 @@ def chat_completion_stream(
                 except Exception:
                     continue
                 try:
-                    delta = (
-                        evt.get("choices", [{}])[0]
-                        .get("delta", {})
-                        .get("content")
-                    )
+                    delta = evt.get("choices", [{}])[0].get("delta", {}).get("content")
                     if not delta:
                         # Some providers embed full message content
-                        delta = (
-                            evt.get("choices", [{}])[0]
-                            .get("message", {})
-                            .get("content")
-                        )
+                        delta = evt.get("choices", [{}])[0].get("message", {}).get("content")
                     if delta:
                         yield str(delta)
                 except Exception:

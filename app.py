@@ -12,6 +12,7 @@ from streamlit_option_menu import option_menu
 
 from app_data.analytics import get_conn as _get_visits_db
 from app_data.analytics import record_visit as _record_visit
+from ml.models import load_single_model
 
 try:
     import PyPDF2 as _pypdf
@@ -117,19 +118,20 @@ def capture_client_meta():
         pass
 
 
-from ml.models import load_single_model
-
 @st.cache_resource
 def get_diabetes_model():
-    return load_single_model(working_dir, 'diabetes')
+    return load_single_model(working_dir, "diabetes")
+
 
 @st.cache_resource
 def get_heart_disease_model():
-    return load_single_model(working_dir, 'heart')
+    return load_single_model(working_dir, "heart")
+
 
 @st.cache_resource
 def get_parkinsons_model():
-    return load_single_model(working_dir, 'parkinsons')
+    return load_single_model(working_dir, "parkinsons")
+
 
 # Sidebar for navigation
 with st.sidebar:
@@ -1229,9 +1231,11 @@ if selected == "Chat with HealthBot":
                                 backoff_base=0.5,
                                 request_id=req_id,
                                 api_key=api_key,
-                                preferred_models=[st.session_state.get("ui_model")]
-                                if st.session_state.get("ui_model")
-                                else None,
+                                preferred_models=(
+                                    [st.session_state.get("ui_model")]
+                                    if st.session_state.get("ui_model")
+                                    else None
+                                ),
                             )
                     else:
                         assistant_reply = chat_completion(
