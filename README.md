@@ -2,40 +2,13 @@
 
 An AI-assisted health helper with three ML predictors (diabetes, heart disease, Parkinson's) and a chat assistant. This app is for information only and is not a substitute for professional medical advice.
 
-## Quick start (local)
+## Use the app
 
-1. Python 3.11 recommended (runtime is pinned for cloud)
-2. Create venv and install deps
-   ```bash
-   python3.11 -m venv venv && source venv/bin/activate
-   pip install -r requirements.txt
-   ```
-3. Set secrets (at least `OPENAI_API_KEY`)
-   ```bash
-   export OPENAI_API_KEY=sk-...
-   # Optional admin
-   export ADMIN_PASSWORD=your_password
-   # Optional analytics persistence
-   export DATABASE_URL=postgresql://user:pass@host:5432/db
-   ```
-4. Run
-   ```bash
-   streamlit run app.py
-   ```
+- Open the live app: https://health-assistant-app-58hi.onrender.com
 
-## Deploy (Streamlit Community Cloud)
+## Deployment
 
-1. Push to GitHub (already connected).
-2. On Streamlit Cloud, create an app from this repo.
-3. Ensure runtime is Python 3.11 (provided by `runtime.txt`).
-4. Configure Secrets in the app Settings:
-   ```toml
-   OPENAI_API_KEY = "sk-..."
-   # optional
-   ADMIN_PASSWORD = "your_password"
-   DATABASE_URL = "postgresql://user:pass@host:5432/db"
-   ```
-5. Deploy. First build may take a few minutes.
+- Deployed on Render: https://health-assistant-app-58hi.onrender.com
 
 ## Architecture
 
