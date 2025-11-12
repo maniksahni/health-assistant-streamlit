@@ -3,4 +3,4 @@ black==24.8.0
 pytest==8.2.0
 pip-tools
 pre-commit==3.7.0
-mypy==1.10.0
+mypy==1.18.2
