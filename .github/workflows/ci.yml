@@ -11,7 +11,7 @@ jobs:
     outputs:
       python_version: ${{ steps.vars.outputs.python_version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - id: vars
         run: echo "python_version=3.11" >> $GITHUB_OUTPUT
 
@@ -19,7 +19,7 @@ jobs:
     needs: setup
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ needs.setup.outputs.python_version }}
@@ -41,7 +41,7 @@ jobs:
     needs: setup
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ needs.setup.outputs.python_version }}
@@ -58,7 +58,7 @@ jobs:
     needs: tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: actions/setup-python@v5
         with:
           python-version: 3.11
