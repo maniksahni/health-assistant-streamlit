@@ -118,17 +118,17 @@ def capture_client_meta():
         pass
 
 
-@st.cache_resource
+@st.cache_resource(show_spinner=False)
 def get_diabetes_model():
     return load_single_model(working_dir, "diabetes")
 
 
-@st.cache_resource
+@st.cache_resource(show_spinner=False)
 def get_heart_disease_model():
     return load_single_model(working_dir, "heart")
 
 
-@st.cache_resource
+@st.cache_resource(show_spinner=False)
 def get_parkinsons_model():
     return load_single_model(working_dir, "parkinsons")
 
