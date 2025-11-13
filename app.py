@@ -790,21 +790,13 @@ if selected == "Chat with HealthBot":
         st.session_state.chat_model = "gpt-3.5-turbo"
     st.session_state.chat_temp = 0.2
 
-    # Visible model selector when using OpenRouter
+    # Hidden model selector for OpenRouter: always sync without rendering a dropdown
     if provider == "openrouter":
-        try:
-            default_idx = (
-                st.session_state.available_models.index(st.session_state.chat_model)
-                if st.session_state.chat_model in st.session_state.available_models
-                else 0
-            )
-        except Exception:
-            default_idx = 0
-        st.session_state["ui_model"] = st.selectbox(
-            "Model",
-            options=st.session_state.available_models,
-            index=default_idx,
-        )
+        current_model = st.session_state.get("ui_model") or st.session_state.get("chat_model")
+        if not current_model:
+            current_model = "mistralai/mistral-nemo:free"
+        st.session_state.chat_model = current_model
+        st.session_state["ui_model"] = current_model
 
     # Initialize messages in session state
     if "messages" not in st.session_state:
