@@ -4,7 +4,7 @@ import os
 import random
 import re
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, cast
 
 import requests
 from duckduckgo_search import DDGS
@@ -98,7 +98,9 @@ def _get_weather_context(query: str) -> Optional[str]:
     try:
         geo = requests.get(
             "https://geocoding-api.open-meteo.com/v1/search",
-            params={"name": city, "count": 1, "language": "en", "format": "json"},
+            params=cast(
+                Dict[str, Any], {"name": city, "count": 1, "language": "en", "format": "json"}
+            ),
             timeout=10,
         ).json()
         if not geo or not geo.get("results"):
@@ -109,12 +111,15 @@ def _get_weather_context(query: str) -> Optional[str]:
         cc = res.get("country")
         wx = requests.get(
             "https://api.open-meteo.com/v1/forecast",
-            params={
-                "latitude": lat,
-                "longitude": lon,
-                "current": "temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m",
-                "timezone": "auto",
-            },
+            params=cast(
+                Dict[str, Any],
+                {
+                    "latitude": lat,
+                    "longitude": lon,
+                    "current": "temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m",
+                    "timezone": "auto",
+                },
+            ),
             timeout=10,
         ).json()
         # Handle both current and current_weather styles
@@ -434,7 +439,8 @@ def chat_completion_stream(
     if preferred_models and isinstance(preferred_models, list) and preferred_models:
         model = str(preferred_models[0])
     elif os.getenv("OPENAI_MODEL") or os.getenv("MODEL"):
-        model = (os.getenv("OPENAI_MODEL") or os.getenv("MODEL")).strip()
+        _env_model = os.getenv("OPENAI_MODEL") or os.getenv("MODEL")
+        model = _env_model.strip() if isinstance(_env_model, str) else candidates[0]
     else:
         model = candidates[0] if candidates else "gpt-4o-mini"
 
