@@ -42,6 +42,20 @@ st.set_page_config(page_title="Health Assistant", layout="wide", page_icon="🧑
 # Basic logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
+# Global CSS override to set blue accents and selected sidebar item
+st.markdown(
+    """
+    <style>
+      :root { --primary-color: #2563eb; }
+      .stButton>button { background:#2563eb; border-color:#2563eb; color:#fff; }
+      .stButton>button:hover { background:#1d4ed8; border-color:#1d4ed8; }
+      /* streamlit-option-menu active item */
+      .nav-link-selected { background-color:#2563eb !important; color:#ffffff !important; }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 # Optional Sentry error monitoring
 try:
     import sentry_sdk  # type: ignore
@@ -1213,7 +1227,7 @@ if selected == "Chat with HealthBot":
                             for ch in chat_completion_stream(
                                 temp_messages,
                                 temperature=0.2,
-                                max_tokens=512,
+                                max_tokens=1024,
                                 request_timeout=20,
                                 retries=0,
                                 backoff_base=0.5,
@@ -1229,7 +1243,7 @@ if selected == "Chat with HealthBot":
                             assistant_reply = chat_completion(
                                 temp_messages,
                                 temperature=0.2,
-                                max_tokens=512,
+                                max_tokens=1024,
                                 request_timeout=15,
                                 retries=0,
                                 backoff_base=0.5,
@@ -1245,7 +1259,7 @@ if selected == "Chat with HealthBot":
                         assistant_reply = chat_completion(
                             temp_messages,
                             temperature=0.2,
-                            max_tokens=512,
+                            max_tokens=1024,
                             request_timeout=15,
                             retries=0,
                             backoff_base=0.5,
@@ -1253,10 +1267,6 @@ if selected == "Chat with HealthBot":
                             api_key=api_key,
                         )
 
-                # Limit response to 250 words
-                assistant_reply_words = assistant_reply.split()
-                if len(assistant_reply_words) > 250:
-                    assistant_reply = " ".join(assistant_reply_words[:250]) + "..."
 
                 # Commit both user and assistant messages only on success with non-empty reply
                 if assistant_reply.strip():

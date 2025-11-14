@@ -10,7 +10,7 @@ import requests
 from duckduckgo_search import DDGS
 
 DEFAULT_TEMP = 0.2
-DEFAULT_MAX_TOKENS = 512
+DEFAULT_MAX_TOKENS = 2048
 
 
 def _needs_web_search(query: str) -> bool:
