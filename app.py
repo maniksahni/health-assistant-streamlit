@@ -1267,7 +1267,6 @@ if selected == "Chat with HealthBot":
                             api_key=api_key,
                         )
 
-
                 # Commit both user and assistant messages only on success with non-empty reply
                 if assistant_reply.strip():
                     st.session_state.messages = temp_messages + [
