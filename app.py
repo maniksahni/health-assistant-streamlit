@@ -420,8 +420,10 @@ if selected == "Diabetes Prediction":
                 st.markdown(precautions, unsafe_allow_html=True)
         except ValueError:
             st.warning("Please enter valid numeric values.")
-        except Exception:
+        except Exception as e:
             st.error("Prediction failed. Please refresh and try again.")
+            with st.expander("Show debug details"):
+                st.exception(e)
 
 # Heart Disease Prediction Page
 if selected == "Heart Disease Prediction":
@@ -588,8 +590,10 @@ if selected == "Heart Disease Prediction":
                 st.markdown(precautions, unsafe_allow_html=True)
         except ValueError:
             st.warning("Please enter valid numeric values.")
-        except Exception:
+        except Exception as e:
             st.error("Prediction failed. Please refresh and try again.")
+            with st.expander("Show debug details"):
+                st.exception(e)
 
 # Parkinson's Prediction Page
 if selected == "Parkinsons Prediction":
@@ -711,8 +715,10 @@ if selected == "Parkinsons Prediction":
                 st.markdown(precautions, unsafe_allow_html=True)
         except ValueError:
             st.warning("Please enter valid numeric values.")
-        except Exception:
+        except Exception as e:
             st.error("Prediction failed. Please refresh and try again.")
+            with st.expander("Show debug details"):
+                st.exception(e)
 # Chatbot Page
 if selected == "Chat with HealthBot":
     st.title("Chat with HealthBot 🩺")
