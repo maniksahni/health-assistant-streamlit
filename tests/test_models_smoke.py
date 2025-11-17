@@ -1,5 +1,7 @@
 import os
+
 import numpy as np
+
 from ml.models import load_single_model
 
 
