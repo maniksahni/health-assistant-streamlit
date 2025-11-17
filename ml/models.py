@@ -39,18 +39,18 @@ def load_single_model(base_dir: str, model_name: str) -> Optional[object]:
                     continue
                 if not hasattr(est, "monotonic_cst"):
                     try:
-                        setattr(est, "monotonic_cst", None)
+                        est.monotonic_cst = None  # noqa: B010
                     except Exception:
                         pass
         if not hasattr(model, "monotonic_cst"):
             try:
-                setattr(model, "monotonic_cst", None)
+                model.monotonic_cst = None  # noqa: B010
             except Exception:
                 pass
         base_est = getattr(model, "base_estimator_", None)
         if base_est is not None and not hasattr(base_est, "monotonic_cst"):
             try:
-                setattr(base_est, "monotonic_cst", None)
+                base_est.monotonic_cst = None  # noqa: B010
             except Exception:
                 pass
     except Exception:
