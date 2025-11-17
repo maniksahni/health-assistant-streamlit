@@ -24,6 +24,38 @@ def load_single_model(base_dir: str, model_name: str) -> Optional[object]:
 
     with open(file_path, "rb") as f:
         model = pickle.load(f)
+    # Compatibility patch for sklearn version drift:
+    # Older pickled DecisionTree/RandomForest models may miss 'monotonic_cst',
+    # which newer sklearn accesses during predict(). Add safe defaults.
+    try:
+        estimators = getattr(model, "estimators_", None)
+        if estimators:
+            try:
+                iterable = list(estimators)
+            except Exception:
+                iterable = estimators
+            for est in iterable:
+                if est is None:
+                    continue
+                if not hasattr(est, "monotonic_cst"):
+                    try:
+                        setattr(est, "monotonic_cst", None)
+                    except Exception:
+                        pass
+        if not hasattr(model, "monotonic_cst"):
+            try:
+                setattr(model, "monotonic_cst", None)
+            except Exception:
+                pass
+        base_est = getattr(model, "base_estimator_", None)
+        if base_est is not None and not hasattr(base_est, "monotonic_cst"):
+            try:
+                setattr(base_est, "monotonic_cst", None)
+            except Exception:
+                pass
+    except Exception:
+        # Ignore patch issues; fall back to model as-is
+        pass
     return model
 
 
