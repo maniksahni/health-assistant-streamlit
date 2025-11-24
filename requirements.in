@@ -1,5 +1,5 @@
 # Top-level application dependencies (locked via pip-tools)
-numpy==1.26.4
+numpy==2.3.4
 scikit-learn==1.5.2
 streamlit==1.38.0
 streamlit-option-menu==0.3.6
