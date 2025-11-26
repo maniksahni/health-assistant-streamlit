@@ -13,14 +13,19 @@ services:
         value: 3.11.9
       - key: STREAMLIT_BROWSER_GATHERUSAGESTATS
         value: "false"
-      # Uncomment and set these in the Render dashboard or keep here only if you use Blueprint deploys
-      # - key: OPENAI_PROVIDER
-      #   value: openrouter
-      # - key: OPENROUTER_API_KEY
-      #   sync: false
-      # - key: OPENAI_API_KEY
-      #   sync: false
-      # - key: ADMIN_PASSWORD
-      #   sync: false
-      # - key: DATABASE_URL
-      #   sync: false
+      # Prefer OpenRouter in deployment
+      - key: OPENAI_PROVIDER
+        value: openrouter
+      # Default to a less congested free model; client will fall back across candidates
+      - key: OPENAI_MODEL
+        value: meta-llama/llama-3.1-8b-instruct:free
+      # Set these in Render dashboard (do not commit secrets); "sync: false" keeps them managed in Render
+      - key: OPENROUTER_API_KEY
+        sync: false
+      # Optional alternative provider key (if you switch to OpenAI)
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: DATABASE_URL
+        sync: false

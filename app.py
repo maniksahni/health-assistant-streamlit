@@ -812,6 +812,9 @@ if selected == "Chat with HealthBot":
     if provider == "openrouter":
         st.session_state.available_models = [
             "mistralai/mistral-nemo:free",
+            "meta-llama/llama-3.1-8b-instruct:free",
+            "google/gemma-2-9b-it:free",
+            "qwen/qwen2.5-7b-instruct:free",
             "mistralai/mistral-nemo",
         ]
         st.session_state.chat_model = (
@@ -1228,7 +1231,8 @@ if selected == "Chat with HealthBot":
                     if provider == "openrouter":
                         ph = st.empty()
                         try:
-                            pm = [st.session_state.get("ui_model") or "mistralai/mistral-nemo:free"]
+                            # Do not force a single model; allow client to fall back across candidates
+                            pm = None
                             chunks = []
                             for ch in chat_completion_stream(
                                 temp_messages,
@@ -1240,9 +1244,13 @@ if selected == "Chat with HealthBot":
                                 request_id=req_id,
                                 api_key=api_key,
                                 preferred_models=pm,
+                                request_id=req_id,
                             ):
-                                chunks.append(ch)
-                                ph.markdown("**HealthBot:** " + "".join(chunks))
+                                try:
+                                    chunks.append(str(ch))
+                                except Exception:
+                                    pass
+                            ph.markdown("**HealthBot:** " + "".join(chunks))
                             assistant_reply = "".join(chunks)
                         except Exception:
                             # Fallback to one-shot

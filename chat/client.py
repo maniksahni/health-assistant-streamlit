@@ -174,7 +174,12 @@ def _model_candidates(provider: str) -> list[str]:
     provider = (provider or "").lower()
     if provider == "openrouter":
         return [
+            # Try alternate free routes first; mistral free often rate-limited
+            "meta-llama/llama-3.1-8b-instruct:free",
+            "google/gemma-2-9b-it:free",
+            "qwen/qwen2.5-7b-instruct:free",
             "mistralai/mistral-nemo:free",
+            # Paid/priority route
             "mistralai/mistral-nemo",
         ]
     # Default to OpenAI-compatible IDs
@@ -238,6 +243,10 @@ def chat_completion(
         base_url = "https://openrouter.ai/api/v1"
 
     candidates = _model_candidates(provider)
+    try:
+        random.shuffle(candidates)
+    except Exception:
+        pass
     attempt = 0
     last_err = None
     t0 = time.time()
@@ -380,8 +389,8 @@ def chat_completion_stream(
     temperature: float = DEFAULT_TEMP,
     max_tokens: int = DEFAULT_MAX_TOKENS,
     request_timeout: int = 60,
-    retries: int = 0,
-    backoff_base: float = 0.5,
+    retries: int = 1,
+    backoff_base: float = 0.75,
     request_id: Optional[str] = None,
     api_key: Optional[str] = None,
     preferred_models: Optional[List[str]] = None,
@@ -478,7 +487,8 @@ def chat_completion_stream(
                     backoff_base=backoff_base,
                     request_id=request_id,
                     api_key=api_key,
-                    preferred_models=[model],
+                    # Try all candidates instead of only this model
+                    preferred_models=candidates,
                 )
                 return
             for raw in r.iter_lines(decode_unicode=True):
@@ -514,5 +524,6 @@ def chat_completion_stream(
             backoff_base=backoff_base,
             request_id=request_id,
             api_key=api_key,
-            preferred_models=[model],
+            # Try all candidates
+            preferred_models=candidates,
         )
